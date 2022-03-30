@@ -26,14 +26,14 @@ pip install -r requirements.txt
 cd project
 
 # run module (example: mnist as your main contribution)   
-python lit_classifier_main.py    
+python lit_mnist.py --gpus 1
 ```
 
 ## Imports
 This project is setup as a package which means you can now easily import any file into any other file like so:
 ```python
-from project.datasets.mnist import mnist
-from project.lit_classifier_main import LitClassifier
+from project.datasets.mnist import mnist # this does not work for this version...
+from project.lit_mnist import LitClassifier
 from pytorch_lightning import Trainer
 
 # model
