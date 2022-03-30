@@ -32,7 +32,8 @@ python lit_mnist.py --gpus 1
 ## Imports
 This project is setup as a package which means you can now easily import any file into any other file like so:
 ```python
-from project.datasets.mnist import mnist # this does not work for this version...
+from torchvision.datasets.mnist import MNIST
+from torchvision import transforms
 from project.lit_mnist import LitClassifier
 from pytorch_lightning import Trainer
 
@@ -40,7 +41,13 @@ from pytorch_lightning import Trainer
 model = LitClassifier()
 
 # data
-train, val, test = mnist()
+dataset = MNIST('', train=True, download=True, transform=transforms.ToTensor())
+mnist_test = MNIST('', train=False, download=True, transform=transforms.ToTensor())
+mnist_train, mnist_val = random_split(dataset, [55000, 5000])
+
+train_loader = DataLoader(mnist_train, batch_size=128)
+val_loader = DataLoader(mnist_val, batch_size=128)
+test_loader = DataLoader(mnist_test, batch_size=128)
 
 # train
 trainer = Trainer()
