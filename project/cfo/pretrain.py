@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchmetrics
 
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
@@ -145,9 +145,10 @@ def main():
     es_callback = EarlyStopping(monitor=args.early_stopping_monitor, 
                                 mode=args.early_stopping_mode, 
                                 patience=args.early_stopping_patience)
+    lr_monitor = LearningRateMonitor()
     trainer = pl.Trainer.from_argparse_args(args, logger=wandb_logger,
                                             callbacks=[checkpoint_callback,
-                                                       es_callback],
+                                                       es_callback, lr_monitor],
                                             log_every_n_steps=args.my_log_every_n_steps,
                                             accelerator=args.my_accelerator,
                                             max_epochs=args.my_max_epochs,
