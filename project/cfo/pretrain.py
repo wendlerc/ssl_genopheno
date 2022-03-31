@@ -28,13 +28,15 @@ class CompressiveSensingPretraining(pl.LightningModule):
     def __init__(self, encoder,
                  lr = 1e-3,
                  beta1 = 0.9,
-                 beta2 = 0.95):
+                 beta2 = 0.95,
+                 factor = 0.5):
         super().__init__()
         self.encoder = encoder       
         self.bn = nn.BatchNorm1d(encoder.get_output_size(), affine=False)# this makes sure that dropout does not mess up our loss
         self.my_lr_arg = lr
         self.beta1 = beta1
         self.beta2 = beta2
+        self.factor = factor
         self.loss = CompressiveSensingLoss()
         
     def forward(self, x):
@@ -42,7 +44,8 @@ class CompressiveSensingPretraining(pl.LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2))
-        return optimizer 
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.factor)
+        return {'optimizer':optimizer, 'lr_scheduler':scheduler, 'monitor':'val_loss'}
     
     def training_step(self, batch, batch_idx):
         x = batch
