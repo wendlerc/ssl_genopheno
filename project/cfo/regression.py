@@ -108,7 +108,7 @@ def main():
     parser.add_argument('--checkpoint_save_top_k', type=int, default=2)
     parser.add_argument('--early_stopping_monitor', type=str, default='val_loss')
     parser.add_argument('--early_stopping_mode', type=str, default='min')
-    parser.add_argument('--early_stopping_patience', type=str, default=25)
+    parser.add_argument('--early_stopping_patience', type=int, default=25)
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
     parser.add_argument('--my_max_epochs', type=int, default=1000)
