@@ -85,6 +85,7 @@ def main():
     parser.add_argument('--lr', default=1e-5, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
+    parser.add_argument('--factor', default=0.5, type=float)
     # selfattn args
     parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--d_model', type=int, default=256)
@@ -134,7 +135,8 @@ def main():
                                    layer_norm_eps=args.layer_norm_eps)
     model = CompressiveSensingPretraining(encoder, lr=args.lr, 
                                beta1=args.beta1, 
-                               beta2=args.beta2)
+                               beta2=args.beta2,
+                               factor=args.factor)
 
     # ------------
     # training
