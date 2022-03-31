@@ -5,3 +5,5 @@ pandas
 wandb
 matplotlib
 numpy
+einops
+yaml
