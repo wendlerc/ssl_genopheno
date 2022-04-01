@@ -12,12 +12,13 @@ from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchmetrics
+import numpy as np
 
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
-from data import OptimizationsPretrainingDataModule
+from data import OptimizationsPretrainingDataModule, OptimizationsDataModule
 from modules import SelfAttentionEncoder
 from loss import CompressiveSensingLoss
 import wandb
@@ -55,18 +56,41 @@ class CompressiveSensingPretraining(pl.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        x = batch
+        x, y = batch
         pred = self.forward(x)
-        loss = self.loss(pred)
-        self.log('val_loss', loss)
-
+        return pred, y
     
+    def validation_epoch_end(self, outputs):
+        X = []
+        Y = []
+        for batch in outputs:
+            x, y = batch
+            X += [x.detach().cpu().numpy()]
+            Y += [y.detach().cpu().numpy()]
+        X = np.concatenate(X, axis=0)
+        Y = np.concatenate(Y, axis=0)
+        Y = Y[:, 0]        
+        n_train = int(0.8 * len(X))
+        X_train = X[:n_train]
+        Y_train = Y[:n_train]
+        X_test = X[n_train:]
+        Y_test = Y[n_train:]
+        w_opt = np.linalg.solve(np.dot(X_train.T, X_train), np.dot(X_train.T, Y_train))       
+        Y_pred = X_test.dot(w_opt)
+        Y_test_mean = Y_test.mean()
+        r2 = np.sum((Y_pred - Y_test_mean)**2)/np.sum((Y_test - Y_test_mean)**2)
+        loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
+        self.log('downstream R2', r2)
+        self.log('val_loss', loss)
+        print('downstream R2 %2.4f loss %2.4f'%(r2, loss))
+        return r2
+        
     def test_step(self, batch, batch_idx):
-        x = batch
-        pred = self.forward(x)
-        loss = self.loss(pred)
-        self.log('test_loss', loss)
-
+        return self.validation_step(batch, batch_idx)
+    
+    def test_epoch_end(self, outputs):
+        return self.validation_epoch_end(outputs)
+    
 
 def main():
     # ------------
@@ -103,7 +127,7 @@ def main():
     parser.add_argument('--early_stopping_patience', type=int, default=25)
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
-    parser.add_argument('--my_max_epochs', type=int, default=1000)
+    parser.add_argument('--my_max_epochs', type=int, default=5)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     
@@ -114,12 +138,18 @@ def main():
     wandb_logger = WandbLogger(entity=args.wandb_entity, 
                                project=args.wandb_project, 
                                name=args.wandb_name,
+							   mode="offline",
                                config=args)
     
     # ------------
     # data
     # ------------
-    datamodule = OptimizationsPretrainingDataModule(batch_size=args.batch_size, 
+    ddm = OptimizationsDataModule(batch_size=args.batch_size, 
+                                         num_workers=args.num_workers,
+                                         frac_train=0.0,
+                                         frac_val=1.0,
+                                         seed=args.seed)
+    datamodule = OptimizationsPretrainingDataModule(ddm, batch_size=args.batch_size, 
                                          num_workers=args.num_workers)
 
     # ------------

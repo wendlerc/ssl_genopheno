@@ -19,6 +19,8 @@ class OptimizationsDataModule(pl.LightningDataModule):
                  n_flags=64,
                  batch_size=512, 
                  num_workers=12,
+                 frac_train=0.8,
+                 frac_val=0.1,
                  seed=42,
                  path='datasets/cfo/bitcount_1_GCC_64_1000.csv',
                  *args,
@@ -31,6 +33,8 @@ class OptimizationsDataModule(pl.LightningDataModule):
         self.n_flags = n_flags
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.frac_train = frac_train
+        self.frac_val = frac_val
         self.seed = seed
         self.save_hyperparameters()
         
@@ -46,7 +50,9 @@ class OptimizationsDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         n = len(self.sequences)
         dataset = TensorDataset(self.sequences, self.labels)
-        self.train, self.valid, self.test = random_split(dataset, [int(0.8*n), int(0.1*n), n - int(0.8*n) - int(0.1*n)], generator=torch.Generator().manual_seed(self.seed))
+        self.train, self.valid, self.test = random_split(dataset, [int(self.frac_train*n), 
+                                                                   int(self.frac_val*n), 
+                                                                   n - int(self.frac_train*n) - int(self.frac_val*n)], generator=torch.Generator().manual_seed(self.seed))
         
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
@@ -76,12 +82,11 @@ class UniformOptimizationsDataset(Dataset):
 
 class OptimizationsPretrainingDataModule(pl.LightningDataModule):
     def __init__(self, 
+                 downstream_datamodule,
                  n_flags=64,
                  batch_size=512, 
                  num_workers=12,
-                 n_train=10000,
-                 n_valid=10000,
-                 n_test=10000,
+                 n_train=256,
                  *args,
                  **kwargs):
         """
@@ -89,12 +94,17 @@ class OptimizationsPretrainingDataModule(pl.LightningDataModule):
         """
         super().__init__()
         self.n_train = n_train
-        self.n_valid = n_valid
-        self.n_test = n_test
         self.n_flags = n_flags
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.downstream_dm = downstream_datamodule
         self.save_hyperparameters()
+        
+    def prepare_data(self):
+        self.downstream_dm.prepare_data()
+        
+    def setup(self, stage=None):
+        self.downstream_dm.setup(stage)
         
     def train_dataloader(self):
         #print('creating new dataset...')
@@ -102,10 +112,10 @@ class OptimizationsPretrainingDataModule(pl.LightningDataModule):
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):
-        dataset = UniformOptimizationsDataset(self.n_flags, self.n_valid)
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        val = self.downstream_dm.val_dataloader()
+        return val
     
     def test_dataloader(self):
-        dataset = UniformOptimizationsDataset(self.n_flags, self.n_test)
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        val = self.downstream_dm.val_dataloader()
+        return val
         
