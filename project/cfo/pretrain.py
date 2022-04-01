@@ -138,7 +138,6 @@ def main():
     wandb_logger = WandbLogger(entity=args.wandb_entity, 
                                project=args.wandb_project, 
                                name=args.wandb_name,
-							   mode="offline",
                                config=args)
     
     # ------------
