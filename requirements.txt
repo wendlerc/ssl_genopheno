@@ -6,4 +6,3 @@ wandb
 matplotlib
 numpy
 einops
-yaml
