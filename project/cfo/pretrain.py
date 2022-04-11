@@ -24,6 +24,9 @@ from loss import CompressiveSensingLoss
 import wandb
 import yaml
 
+from sklearn.metrics import r2_score
+from sklearn.linear_model import LassoCV
+
 
 class CompressiveSensingPretraining(pl.LightningModule):
     def __init__(self, encoder,
@@ -60,7 +63,33 @@ class CompressiveSensingPretraining(pl.LightningModule):
         pred = self.forward(x)
         return pred, y
     
-    def validation_epoch_end(self, outputs):
+    
+    def validation_epoch_end_lasso(self, outputs):
+        X = []
+        Y = []
+        for batch in outputs:
+            x, y = batch
+            X += [x.detach().cpu().numpy()]
+            Y += [y.detach().cpu().numpy()]
+        X = np.concatenate(X, axis=0)
+        Y = np.concatenate(Y, axis=0)
+        Y = Y[:, 0]        
+        n_train = int(0.8 * len(X))
+        X_train = X[:n_train]
+        Y_train = Y[:n_train]
+        X_test = X[n_train:]
+        Y_test = Y[n_train:]
+        reg = LassoCV(cv=5, eps=1e-4)
+        reg.fit(X_train, Y_train)
+        Y_pred = reg.predict(X_test)
+        r2 = r2_score(Y_test, Y_pred)
+        loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
+        self.log('lasso downstream R2', r2)
+        self.log('lasso_val_loss', loss)
+        print('Lasso: downstream R2 %2.4f loss %2.4f'%(r2, loss))
+        return loss
+    
+    def validation_epoch_end_least_squares(self, outputs):
         X = []
         Y = []
         for batch in outputs:
@@ -77,13 +106,20 @@ class CompressiveSensingPretraining(pl.LightningModule):
         Y_test = Y[n_train:]
         w_opt = np.linalg.solve(np.dot(X_train.T, X_train), np.dot(X_train.T, Y_train))       
         Y_pred = X_test.dot(w_opt)
-        Y_test_mean = Y_test.mean()
-        r2 = np.sum((Y_pred - Y_test_mean)**2)/np.sum((Y_test - Y_test_mean)**2)
+        #Y_test_mean = Y_test.mean()
+        #r2 = 1 - np.sum((Y_pred - Y_test)**2)/np.sum((Y_test - Y_test_mean)**2)
+        r2 = r2_score(Y_test, Y_pred)
         loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
-        self.log('downstream R2', r2)
-        self.log('val_loss', loss)
-        print('downstream R2 %2.4f loss %2.4f'%(r2, loss))
-        return r2
+        self.log('ls downstream R2', r2)
+        self.log('ls_val_loss', loss)
+        print('LS: downstream R2 %2.4f loss %2.4f'%(r2, loss))
+        return loss
+        
+    
+    def validation_epoch_end(self, outputs):
+        l1 = self.validation_epoch_end_least_squares(outputs)
+        l2 = self.validation_epoch_end_lasso(outputs)
+        self.log('val_loss', l2)
         
     def test_step(self, batch, batch_idx):
         return self.validation_step(batch, batch_idx)

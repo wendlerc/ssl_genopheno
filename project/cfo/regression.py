@@ -21,6 +21,8 @@ from data import OptimizationsDataModule
 from modules import SelfAttentionEncoder
 import wandb
 import yaml
+import numpy as np
+
 
 class SequenceRegression(pl.LightningModule):
     def __init__(self, encoder,
@@ -60,6 +62,10 @@ class SequenceRegression(pl.LightningModule):
             self.log('train_%s'%name, score(pred, y))
         return loss
     
+    def training_epoch_end(self, outputs):
+        mean_loss = torch.mean(torch.stack([o['loss'] for o in outputs]))
+        self.log('mean_train_loss', mean_loss)
+    
     def validation_step(self, batch, batch_idx):
         x, y = batch
         pred = self.forward(x)
@@ -67,6 +73,11 @@ class SequenceRegression(pl.LightningModule):
         self.log('val_loss', loss)
         for name, score in self.scores.items():
             self.log('valid_%s'%name, score(pred, y))
+        return loss
+            
+    def validation_epoch_end(self, outputs):
+        mean_loss = torch.mean(torch.stack(outputs))
+        self.log('mean_valid_loss', mean_loss)
     
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -75,6 +86,11 @@ class SequenceRegression(pl.LightningModule):
         self.log('test_loss', loss)
         for name, score in self.scores.items():
             self.log('test_%s'%name, score(pred, y))
+        return loss
+            
+    def test_epoch_end(self, outputs):
+        mean_loss = torch.mean(torch.stack(outputs))
+        self.log('mean_test_loss', mean_loss)
 
 def main():
     # ------------
@@ -134,7 +150,8 @@ def main():
     # ------------
     # model
     # ------------
-    encoder = SelfAttentionEncoder(65, 64, 
+    n_flags = datamodule.get_n_flags()
+    encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
                                    d_model=args.d_model,
                                    nhead=args.nhead,

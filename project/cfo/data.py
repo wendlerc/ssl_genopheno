@@ -16,21 +16,20 @@ from utils import UniformOptimizations
 
 class OptimizationsDataModule(pl.LightningDataModule):
     def __init__(self, 
-                 n_flags=64,
                  batch_size=512, 
                  num_workers=12,
                  frac_train=0.8,
                  frac_val=0.1,
                  seed=42,
-                 path='datasets/cfo/bitcount_1_GCC_64_1000.csv',
+                 #path='datasets/cfo/suite/bitcount/bitcount_1_LLVM_99_1000.csv',
+                 path='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_61_1000.csv',
                  *args,
                  **kwargs):
         """
-        Note that 0 is used as padding token, 1,...,64 are the tokens for the flags
+        Note that 0 is used as padding token, 1,...,99 are the tokens for the flags
         """
         super().__init__()
         self.path = path
-        self.n_flags = n_flags
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.frac_train = frac_train
@@ -42,6 +41,7 @@ class OptimizationsDataModule(pl.LightningDataModule):
         df = pd.read_csv(self.path)
         df = df.replace([np.nan], -1)
         data = df.to_numpy()
+        self.n_flags = data.shape[1]
         self.sequences = torch.tensor(data[:, 1:], dtype=torch.long) + 1
         labels = data[:,0]
         labels = (labels - labels.mean())/labels.std()
@@ -63,6 +63,10 @@ class OptimizationsDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(self.test, batch_size=self.batch_size, num_workers=self.num_workers)
     
+    def get_n_flags(self):
+        self.prepare_data()
+        return self.n_flags
+    
 
 class UniformOptimizationsDataset(Dataset):
     def __init__(self, n_options, length=10000):
@@ -83,7 +87,7 @@ class UniformOptimizationsDataset(Dataset):
 class OptimizationsPretrainingDataModule(pl.LightningDataModule):
     def __init__(self, 
                  downstream_datamodule,
-                 n_flags=64,
+                 n_flags=99,
                  batch_size=512, 
                  num_workers=12,
                  n_train=100000,
