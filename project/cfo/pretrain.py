@@ -127,7 +127,7 @@ def main():
     parser.add_argument('--early_stopping_patience', type=int, default=25)
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
-    parser.add_argument('--my_max_epochs', type=int, default=5)
+    parser.add_argument('--my_max_epochs', type=int, default=1000)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     
