@@ -41,7 +41,7 @@ class OptimizationsDataModule(pl.LightningDataModule):
         df = pd.read_csv(self.path)
         df = df.replace([np.nan], -1)
         data = df.to_numpy()
-        self.n_flags = data.shape[1]
+        self.n_flags = data.shape[1] - 1
         self.sequences = torch.tensor(data[:, 1:], dtype=torch.long) + 1
         labels = data[:,0]
         labels = (labels - labels.mean())/labels.std()

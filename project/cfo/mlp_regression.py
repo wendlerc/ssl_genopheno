@@ -18,7 +18,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
 from data import OptimizationsDataModule
-from modules import SelfAttentionEncoder
+from modules import FCEncoder
 import wandb
 import yaml
 import numpy as np
@@ -105,20 +105,14 @@ def main():
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=512, type=int)
-    parser.add_argument('--num_workers', default=12, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     # lightingmodule args
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
     # selfattn args
-    parser.add_argument('--num_layers', type=int, default=3)
-    parser.add_argument('--d_model', type=int, default=256)
-    parser.add_argument('--nhead', type=int, default=8)
-    parser.add_argument('--dim_feedforward', type=int, default=1024)
-    parser.add_argument('--dropout', type=float, default=0.1)
-    parser.add_argument('--activation', type=str, default='relu')
-    parser.add_argument('--layer_norm_eps', type=float, default=1e-5)
+    parser.add_argument('--d_model', type=int, default=20)
     # trainer args
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
     parser.add_argument('--checkpoint_monitor', type=str, default='val_loss')
@@ -152,14 +146,7 @@ def main():
     # model
     # ------------
     n_flags = datamodule.get_n_flags()
-    encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
-                                   num_layers=args.num_layers,
-                                   d_model=args.d_model,
-                                   nhead=args.nhead,
-                                   dim_feedforward=args.dim_feedforward,
-                                   dropout=args.dropout,
-                                   activation=args.activation,
-                                   layer_norm_eps=args.layer_norm_eps)
+    encoder = FCEncoder(n_flags+1, args.d_model, n_flags)
     model = SequenceRegression(encoder, lr=args.lr, 
                                beta1=args.beta1, 
                                beta2=args.beta2,

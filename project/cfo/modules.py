@@ -12,6 +12,23 @@ import pytorch_lightning as pl
 from einops import rearrange
 import math
 
+
+class FCEncoder(nn.Module):
+    def __init__(self, dict_size, embedding_size, max_len):
+        super().__init__()
+        self.embed = nn.Embedding(dict_size, embedding_size)
+        self.flatten = nn.Flatten()
+        self.embedding_size = embedding_size
+        self.max_len = max_len
+    
+    def forward(self, x):
+        return self.flatten(self.embed(x))
+    
+    def get_output_size(self):
+        return self.max_len * self.embedding_size
+        
+
+
 class PositionalEncodingBatchFirst(nn.Module):
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
