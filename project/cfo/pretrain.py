@@ -190,7 +190,8 @@ def main():
     # ------------
     # model
     # ------------
-    encoder = SelfAttentionEncoder(65, 64, 
+    n_flags = datamodule.get_n_flags()
+    encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
                                    d_model=args.d_model,
                                    nhead=args.nhead,

@@ -14,18 +14,21 @@ import math
 
 
 class FCEncoder(nn.Module):
-    def __init__(self, dict_size, embedding_size, max_len):
+    def __init__(self, dict_size, embedding_size, d_model, max_len):
         super().__init__()
         self.embed = nn.Embedding(dict_size, embedding_size)
+        self.fc = nn.Linear(embedding_size*max_len, d_model)
         self.flatten = nn.Flatten()
+        #self.relu = nn.ReLU(inplace=True) # for some reason works way better without relu
         self.embedding_size = embedding_size
         self.max_len = max_len
+        self.d_model = d_model
     
     def forward(self, x):
-        return self.flatten(self.embed(x))
+        return self.fc(self.flatten(self.embed(x)))
     
     def get_output_size(self):
-        return self.max_len * self.embedding_size
+        return self.d_model
         
 
 

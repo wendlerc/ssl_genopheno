@@ -103,16 +103,18 @@ def main():
     parser.add_argument('--wandb_name', default=None, type=str)
     parser.add_argument('--wandb_project', default='cfo_supervised', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
+    parser.add_argument('--wandb_mode', default='online', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=512, type=int)
     parser.add_argument('--num_workers', default=4, type=int)
     # lightingmodule args
-    parser.add_argument('--lr', default=1e-4, type=float)
+    parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
     # selfattn args
-    parser.add_argument('--d_model', type=int, default=20)
+    parser.add_argument('--d_embedding', type=int, default=20)
+    parser.add_argument('--d_model', type=int, default=256)
     # trainer args
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
     parser.add_argument('--checkpoint_monitor', type=str, default='val_loss')
@@ -122,7 +124,7 @@ def main():
     parser.add_argument('--early_stopping_patience', type=int, default=25)
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
-    parser.add_argument('--my_max_epochs', type=int, default=1000)
+    parser.add_argument('--my_max_epochs', type=int, default=20)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     
@@ -133,6 +135,7 @@ def main():
     wandb_logger = WandbLogger(entity=args.wandb_entity, 
                                project=args.wandb_project, 
                                name=args.wandb_name,
+                               mode=args.wandb_mode,
                                config=args)
     
     # ------------
@@ -146,7 +149,7 @@ def main():
     # model
     # ------------
     n_flags = datamodule.get_n_flags()
-    encoder = FCEncoder(n_flags+1, args.d_model, n_flags)
+    encoder = FCEncoder(n_flags+1, args.d_embedding, args.d_model, n_flags)
     model = SequenceRegression(encoder, lr=args.lr, 
                                beta1=args.beta1, 
                                beta2=args.beta2,
