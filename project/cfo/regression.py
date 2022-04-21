@@ -18,7 +18,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
 from data import OptimizationsDataModule
-from modules import SelfAttentionEncoder
+from modules import SelfAttentionEncoder, TransformerEncoder
 import wandb
 import yaml
 import numpy as np
@@ -50,6 +50,7 @@ class SequenceRegression(pl.LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2), weight_decay=1e-5)
+        #optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2), weight_decay=1e-5)
         #optimizer = torch.optim.SGD(self.parameters(), lr=self.my_lr_arg)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.factor)
         return {'optimizer':optimizer, 'lr_scheduler':scheduler, 'monitor':'val_loss'}
@@ -65,6 +66,7 @@ class SequenceRegression(pl.LightningModule):
     
     def training_epoch_end(self, outputs):
         mean_loss = torch.mean(torch.stack([o['loss'] for o in outputs]))
+        self.log('cls_token_norm', torch.sum(self.encoder.cls_token**2).item())
         self.log('mean_train_loss', mean_loss)
     
     def validation_step(self, batch, batch_idx):
@@ -152,7 +154,7 @@ def main():
     # model
     # ------------
     n_flags = datamodule.get_n_flags()
-    encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
+    encoder = TransformerEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
                                    d_model=args.d_model,
                                    nhead=args.nhead,

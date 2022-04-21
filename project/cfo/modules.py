@@ -50,6 +50,22 @@ class PositionalEncodingBatchFirst(nn.Module):
         """
         x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
+    
+    
+class LearntPositionalEncodingBatchFirst(nn.Module):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        self.pe = nn.Parameter(torch.empty(1, max_len, d_model), requires_grad=True)
+        nn.init.normal_(self.pe, mean=.0, std=.5)
+
+    def forward(self, x):
+        """
+        Args:
+            x: Tensor, shape [batch_size, seq_len, embedding_dim]
+        """
+        x = x + self.pe[:, :x.size(1), :]
+        return self.dropout(x)
 
 class LSTMEncoder(nn.Module):
     def __init__(self, dict_size, 
@@ -80,8 +96,8 @@ class LSTMEncoder(nn.Module):
     def get_output_size(self):
         return 2*self.hidden_size
     
-    
-class SelfAttentionEncoder(nn.Module):
+
+class TransformerEncoder(nn.Module):
     def __init__(self, dict_size, max_len,
                  padding_token=0,
                  num_layers=1, 
@@ -99,6 +115,54 @@ class SelfAttentionEncoder(nn.Module):
         self.d_model = d_model
         self.embed = nn.Embedding(dict_size, d_model)
         self.pos_enc = PositionalEncodingBatchFirst(d_model, max_len=max_len, dropout=dropout)
+        self.enc = nn.Transformer(d_model=d_model, 
+                                  nhead=nhead,
+                                  num_encoder_layers=num_layers,
+                                  num_decoder_layers=num_layers,
+                                  dim_feedforward=dim_feedforward,
+                                  dropout=dropout, 
+                                  activation=activation,
+                                  batch_first=batch_first,
+                                  norm_first=norm_first)
+        self.cls_token = nn.Parameter(torch.empty(1, 1, d_model), requires_grad=True)
+        nn.init.normal_(self.cls_token, mean=.0, std=.5)
+        
+        
+        
+    def forward(self, x):
+        # x has shape n_batch x n_seq (n_seq = max_len for now)
+        src_key_padding_mask = (x == self.padding_token) # n_batch x n_seq
+        
+        batch = self.embed(x)
+        batch = self.pos_enc(math.sqrt(self.d_model) * batch)
+        
+        
+        out = self.enc(batch, self.cls_token.expand(x.shape[0], -1, -1))#, src_key_padding_mask=src_key_padding_mask)
+        return out[:,0,:]
+    
+    def get_output_size(self):
+        return self.d_model
+
+
+
+class SelfAttentionEncoder(nn.Module):
+    def __init__(self, dict_size, max_len,
+                 padding_token=0,
+                 num_layers=1, 
+                 norm=None,
+                 d_model=256, 
+                 nhead=8,
+                 dim_feedforward=1024,
+                 dropout=0.1,
+                 activation='relu',
+                 layer_norm_eps=1e-5,
+                 batch_first=True, 
+                 norm_first=False):
+        super().__init__()
+        self.padding_token = padding_token
+        self.d_model = d_model
+        self.embed = nn.Embedding(dict_size, d_model)
+        self.pos_enc = LearntPositionalEncodingBatchFirst(d_model, max_len=max_len, dropout=dropout)
         self.enc = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model=d_model, 
                                                                     nhead=nhead,
                                                                     dim_feedforward=dim_feedforward,
@@ -118,13 +182,15 @@ class SelfAttentionEncoder(nn.Module):
         
         batch = self.embed(x)
         batch = self.pos_enc(math.sqrt(self.d_model) * batch)
-        #
+        
+        
         src_key_padding_mask = torch.cat((torch.zeros((batch.shape[0], self.cls_token.shape[0]), 
                                                       dtype=torch.bool, device=batch.device), 
                                               src_key_padding_mask), dim=1) # n_batch x 1+n_seq
+        
         self_attn = self.enc(torch.cat((self.cls_token.expand(x.shape[0], -1, -1), batch), dim=1),
                              src_key_padding_mask=src_key_padding_mask)
-        
+
         return self_attn[:, 0] # only return embeddings of the cls tokens
     
     def get_output_size(self):
