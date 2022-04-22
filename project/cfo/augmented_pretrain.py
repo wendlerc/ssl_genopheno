@@ -18,9 +18,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
-from data import OptimizationsPretrainingDataModule, OptimizationsDataModule
+from data import AugmentedOptimizationsPretrainingDataModule, OptimizationsDataModule
 from modules import SelfAttentionEncoder, FCEncoder, TransformerEncoder
-from loss import CompressiveSensingLoss, off_diagonal
+from loss import CompressiveSensingLoss, off_diagonal, BarlowTwinsLoss
 import wandb
 import yaml
 
@@ -47,7 +47,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
         self.beta1 = beta1
         self.beta2 = beta2
         self.factor = factor
-        self.loss = CompressiveSensingLoss()
+        self.loss = BarlowTwinsLoss()
         self.monitor = monitor
         
     def forward(self, x):
@@ -59,15 +59,17 @@ class CompressiveSensingPretraining(pl.LightningModule):
         return {'optimizer':optimizer, 'lr_scheduler':scheduler, 'monitor': self.monitor}
     
     def training_step(self, batch, batch_idx):
-        x = batch
-        pred = self.forward(x)
-        loss = self.loss(pred)
+        x1, x2 = batch
+        pred1 = self.forward(x1)
+        pred2 = self.forward(x2)
+        loss = self.loss(pred1, pred2)
         self.log('train_loss', loss)
-        return {'loss': loss, 'batch': pred}
+        return {'loss': loss, 'z1': pred1, 'z2': pred2}
     
     def training_epoch_end(self, outputs):
-        batch = outputs[-1]['batch']
-        c = batch.T @ batch / batch.shape[0] # DxD
+        z1 = outputs[-1]['z1']
+        z2 = outputs[-1]['z2']
+        c = z1.T @ z2 / z1.shape[0] # DxD
         wandb.log({'crosscorrelation': wandb.Image(c)})
         self.log('cc_off_diag_min', off_diagonal(c**2).min())
         self.log('cc_off_diag_max', off_diagonal(c**2).max())
@@ -163,7 +165,7 @@ def main():
     parser.add_argument('--batch_size', default=512, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     # lightingmodule args
-    parser.add_argument('--lr', default=1e-4, type=float)
+    parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
@@ -184,11 +186,14 @@ def main():
     parser.add_argument('--early_stopping_patience', type=int, default=25)
     
     parser.add_argument('--monitor', type=str, default='mean_train_loss')
-    parser.add_argument('--encoder', type=str, default='transformer')
+    parser.add_argument('--encoder', type=str, default='fc')
+    parser.add_argument('--n_train', type=int, default=10000)
+    parser.add_argument('--no_augmentations', action='store_true')
+    parser.add_argument('--csv', type=str, default='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_61_1000.csv')
     
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
-    parser.add_argument('--my_max_epochs', type=int, default=10)
+    parser.add_argument('--my_max_epochs', type=int, default=500)
     
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
@@ -217,8 +222,10 @@ def main():
                                          frac_train=0.0,
                                          frac_val=1.0,
                                          seed=args.seed)
-    datamodule = OptimizationsPretrainingDataModule(ddm, batch_size=args.batch_size, 
-                                         num_workers=args.num_workers)
+    datamodule = AugmentedOptimizationsPretrainingDataModule(ddm, batch_size=args.batch_size, 
+                                         num_workers=args.num_workers,
+                                         n_train=args.n_train,
+                                         no_augmentations=args.no_augmentations)
 
     # ------------
     # model
@@ -270,13 +277,25 @@ def main():
                                             accelerator=args.my_accelerator,
                                             max_epochs=args.my_max_epochs,
                                             reload_dataloaders_every_n_epochs=1)#this is important for pretraining with dataloaders that just generate examples
+    
+    # ------------
+    # baseline valdiation
+    # -----------
+    trainer.validate(datamodule=datamodule, model=model)
+    # ------------
+    # baseline testing
+    # ------------
+    result = trainer.test(datamodule=datamodule, model=model)
+    # ------------
+    # training
+    # ------------
     trainer.fit(model, datamodule=datamodule)
     # ------------
-    # valdiation
+    # final valdiation
     # -----------
     trainer.validate(datamodule=datamodule, ckpt_path='best')
     # ------------
-    # testing
+    # final testing
     # ------------
     result = trainer.test(datamodule=datamodule, ckpt_path='best')
     print(result)
