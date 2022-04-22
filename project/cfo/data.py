@@ -22,7 +22,7 @@ class OptimizationsDataModule(pl.LightningDataModule):
                  frac_val=0.1,
                  seed=42,
                  #path='datasets/cfo/suite/bitcount/bitcount_1_LLVM_99_1000.csv',
-                 path='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_61_1000.csv',
+                 path='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_10_1000.csv',
                  #path='datasets/cfo/suite/bitcount/perm_bitcount_1_LLVM_99_1000.csv',
                  *args,
                  **kwargs):

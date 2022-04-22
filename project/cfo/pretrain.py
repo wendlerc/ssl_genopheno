@@ -54,7 +54,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2), weight_decay=1e-5)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.factor)
-        return {'optimizer':optimizer, 'lr_scheduler':scheduler, 'monitor':'val_loss'}
+        return {'optimizer':optimizer, 'lr_scheduler':scheduler, 'monitor':'mean_train_loss'}
     
     def training_step(self, batch, batch_idx):
         x = batch
@@ -217,6 +217,10 @@ def main():
     # model
     # ------------
     n_flags = datamodule.get_n_flags()
+    encoder = FCEncoder(n_flags+1, 20, args.d_model, n_flags)
+    
+    
+    """
     encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
                                    d_model=args.d_model,
@@ -225,9 +229,6 @@ def main():
                                    dropout=args.dropout,
                                    activation=args.activation,
                                    layer_norm_eps=args.layer_norm_eps)
-    
-    """
-    encoder = FCEncoder(n_flags+1, 20, args.d_model, n_flags)
     
     encoder = TransformerEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
