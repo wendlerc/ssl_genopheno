@@ -22,6 +22,10 @@ from modules import FCEncoder
 import wandb
 import yaml
 import numpy as np
+import glob
+import sys
+from shutil import copyfile
+import os
 
 
 class SequenceRegression(pl.LightningModule):
@@ -138,6 +142,13 @@ def main():
                                mode=args.wandb_mode,
                                config=args)
     
+    run = wandb_logger.experiment
+    # save file to artifact folder
+    
+    result_dir = args.checkpoint_dir+'/%s/'%wandb_logger.experiment.name 
+    os.makedirs(result_dir, exist_ok=True)
+    copyfile(sys.argv[0], result_dir+sys.argv[0].split('/')[-1])
+    
     # ------------
     # data
     # ------------
@@ -184,7 +195,6 @@ def main():
    
     print("uploading model...")
     #store config and model
-    run = wandb_logger.experiment
     checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
     with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
         yaml.dump(run.config.as_dict(), f, default_flow_style=False)

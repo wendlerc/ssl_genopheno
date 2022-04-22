@@ -22,6 +22,10 @@ from modules import SelfAttentionEncoder, TransformerEncoder
 import wandb
 import yaml
 import numpy as np
+import glob
+import sys
+from shutil import copyfile
+import os
 
 
 class SequenceRegression(pl.LightningModule):
@@ -107,7 +111,7 @@ def main():
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=512, type=int)
-    parser.add_argument('--num_workers', default=12, type=int)
+    parser.add_argument('--num_workers', default=2, type=int)
     # lightingmodule args
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
@@ -142,6 +146,13 @@ def main():
                                project=args.wandb_project, 
                                name=args.wandb_name,
                                config=args)
+    run = wandb_logger.experiment
+    # save file to artifact folder
+    
+    result_dir = args.checkpoint_dir+'/%s/'%wandb_logger.experiment.name 
+    os.makedirs(result_dir, exist_ok=True)
+    copyfile(sys.argv[0], result_dir+sys.argv[0].split('/')[-1])
+
     
     # ------------
     # data
@@ -154,7 +165,15 @@ def main():
     # model
     # ------------
     n_flags = datamodule.get_n_flags()
-    encoder = TransformerEncoder(n_flags+1, n_flags, 
+    # encoder = TransformerEncoder(n_flags+1, n_flags, 
+    #                                num_layers=args.num_layers,
+    #                                d_model=args.d_model,
+    #                                nhead=args.nhead,
+    #                                dim_feedforward=args.dim_feedforward,
+    #                                dropout=args.dropout,
+    #                                activation=args.activation,
+    #                                layer_norm_eps=args.layer_norm_eps)
+    encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
                                    d_model=args.d_model,
                                    nhead=args.nhead,
@@ -196,7 +215,6 @@ def main():
    
     print("uploading model...")
     #store config and model
-    run = wandb_logger.experiment
     checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
     with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
         yaml.dump(run.config.as_dict(), f, default_flow_style=False)

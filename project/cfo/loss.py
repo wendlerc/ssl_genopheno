@@ -26,4 +26,5 @@ class CompressiveSensingLoss(nn.Module):
         on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
         off_diag = off_diagonal(c).pow_(2).sum()
         return on_diag + off_diag
+        #return 1/(batch.shape[1]**2)*(on_diag + off_diag)
 

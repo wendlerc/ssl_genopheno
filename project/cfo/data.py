@@ -88,7 +88,6 @@ class UniformOptimizationsDataset(Dataset):
 class OptimizationsPretrainingDataModule(pl.LightningDataModule):
     def __init__(self, 
                  downstream_datamodule,
-                 n_flags=99,
                  batch_size=512, 
                  num_workers=12,
                  n_train=100000,
@@ -99,10 +98,10 @@ class OptimizationsPretrainingDataModule(pl.LightningDataModule):
         """
         super().__init__()
         self.n_train = n_train
-        self.n_flags = n_flags
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.downstream_dm = downstream_datamodule
+        self.n_flags = downstream_datamodule.get_n_flags()
         self.save_hyperparameters()
         
     def prepare_data(self):
@@ -123,4 +122,7 @@ class OptimizationsPretrainingDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         val = self.downstream_dm.val_dataloader()
         return val
+    
+    def get_n_flags(self):
+        return self.n_flags
         
