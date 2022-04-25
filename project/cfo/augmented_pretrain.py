@@ -164,7 +164,11 @@ def main():
     # datamodule args
     parser.add_argument('--batch_size', default=512, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--n_train', type=int, default=10000)
+    parser.add_argument('--no_augmentations', action='store_true')
+    parser.add_argument('--csv', type=str, default='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_61_1000.csv')
     # lightingmodule args
+    parser.add_argument('--encoder', type=str, default='fc')
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
@@ -184,13 +188,7 @@ def main():
     #parser.add_argument('--early_stopping_monitor', type=str, default='val_loss')
     parser.add_argument('--early_stopping_mode', type=str, default='min')
     parser.add_argument('--early_stopping_patience', type=int, default=25)
-    
     parser.add_argument('--monitor', type=str, default='mean_train_loss')
-    parser.add_argument('--encoder', type=str, default='fc')
-    parser.add_argument('--n_train', type=int, default=10000)
-    parser.add_argument('--no_augmentations', action='store_true')
-    parser.add_argument('--csv', type=str, default='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_61_1000.csv')
-    
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
     parser.add_argument('--my_max_epochs', type=int, default=500)

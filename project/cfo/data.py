@@ -21,16 +21,19 @@ class OptimizationsDataModule(pl.LightningDataModule):
                  frac_train=0.8,
                  frac_val=0.1,
                  seed=42,
-                 #path='datasets/cfo/suite/bitcount/bitcount_1_LLVM_99_1000.csv',
-                 path='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_10_1000.csv',
-                 #path='datasets/cfo/suite/bitcount/perm_bitcount_1_LLVM_99_1000.csv',
+                 paths=['datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_10_1000.csv'],
                  *args,
                  **kwargs):
         """
         Note that 0 is used as padding token, 1,...,99 are the tokens for the flags
+        
+        paths: list of paths, if it only has one element, random splits are performed, else
+        the provided files are interpreted as train, valid, test
         """
         super().__init__()
-        self.path = path
+        self.paths = paths
+        if type(self.paths) is str:
+            self.paths = [self.paths]
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.frac_train = frac_train
@@ -39,21 +42,31 @@ class OptimizationsDataModule(pl.LightningDataModule):
         self.save_hyperparameters()
         
     def prepare_data(self):
-        df = pd.read_csv(self.path)
-        df = df.replace([np.nan], -1)
-        data = df.to_numpy()
-        self.n_flags = data.shape[1] - 1
-        self.sequences = torch.tensor(data[:, 1:], dtype=torch.long) + 1
-        labels = data[:,0]
-        labels = (labels - labels.mean())/labels.std()
-        self.labels = torch.tensor(labels[:, np.newaxis], dtype=torch.float32)
+        if len(self.paths) == 1:
+            self.X, self.y = self._csv_to_tensors(self.paths[0])
+            self.n_flags = self.X.shape[1]
+        elif len(self.paths) == 3:
+            self.X_train, self.y_train = self._csv_to_tensors(self.paths[0])
+            self.X_valid, self.y_valid = self._csv_to_tensors(self.paths[1])
+            self.X_test, self.y_test = self._csv_to_tensors(self.paths[2]) 
+            self.n_flags = self.X_train.shape[1]
+        else:
+            raise NotImplementedError('please provide either one file or three files.')
         
     def setup(self, stage=None):
-        n = len(self.sequences)
-        dataset = TensorDataset(self.sequences, self.labels)
-        self.train, self.valid, self.test = random_split(dataset, [int(self.frac_train*n), 
-                                                                   int(self.frac_val*n), 
-                                                                   n - int(self.frac_train*n) - int(self.frac_val*n)], generator=torch.Generator().manual_seed(self.seed))
+        if len(self.paths) == 1:
+            n = len(self.X)
+            dataset = TensorDataset(self.X, self.y)
+            self.train, self.valid, self.test = random_split(dataset, [int(self.frac_train*n), 
+                                                                       int(self.frac_val*n), 
+                                                                       n - int(self.frac_train*n) - int(self.frac_val*n)], generator=torch.Generator().manual_seed(self.seed))
+        elif len(self.paths) == 3:
+            self.train = TensorDataset(self.X_train, self.y_train)
+            self.valid = TensorDataset(self.X_valid, self.y_valid)
+            self.test = TensorDataset(self.X_test, self.y_test)
+        else:
+            raise NotImplementedError('please provide either one file or three files.')
+            
         
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
@@ -67,6 +80,16 @@ class OptimizationsDataModule(pl.LightningDataModule):
     def get_n_flags(self):
         self.prepare_data()
         return self.n_flags
+    
+    def _csv_to_tensors(self, path):
+        df = pd.read_csv(path)
+        df = df.replace([np.nan], -1)
+        data = df.to_numpy()
+        sequences = torch.tensor(data[:, 1:], dtype=torch.long) + 1
+        labels = data[:,0]
+        labels = (labels - labels.mean())/labels.std()
+        labels = torch.tensor(labels[:, np.newaxis], dtype=torch.float32)
+        return sequences, labels
     
 
 class UniformOptimizationsDataset(Dataset):
