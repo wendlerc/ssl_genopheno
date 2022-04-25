@@ -11,12 +11,13 @@ What it does
 First, install dependencies   
 ```bash
 # clone project   
-git clone git@github.com:chrislybaer/selfsupervisedcs.git
+git clone git@gitlab.inf.ethz.ch:PRV-PUESCHEL/wendlerc/csss.git
 
 # install project   
-cd selfsupervisedcs
+cd csss
 conda create -n csss python=3.8
 conda activate csss
+pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
 #pip install -e .   
 pip install -r requirements.txt
 conda install jupyter
@@ -24,5 +25,9 @@ conda install jupyter
  Next, run experiment using.   
  ```bash
 python project/cfo/regression.py
+```
+or
+ ```bash
+python project/cfo/pretrain.py
 ```
 

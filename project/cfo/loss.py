@@ -26,4 +26,17 @@ class CompressiveSensingLoss(nn.Module):
         on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
         off_diag = off_diagonal(c).pow_(2).sum()
         return on_diag + off_diag
+        #return 1/(batch.shape[1]**2)*(on_diag + off_diag)
+        
+class BarlowTwinsLoss(nn.Module):
+    def __init__(self, C=1.):
+        super().__init__()
+        self.C = C
+
+    def forward(self, batch1: torch.Tensor, batch2: torch.Tensor):
+        # cross-correlation matrix
+        c = batch1.T @ batch2 / batch1.shape[0] # DxD
+        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
+        off_diag = off_diagonal(c).pow_(2).sum()
+        return on_diag + self.C * off_diag
 

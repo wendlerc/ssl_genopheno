@@ -1,0 +1,7 @@
+[,]
+Type,Tag,Time,Optimization,Scores
+sol,10 inexact,0.006636363636363636,[ 1 7 6 0 5 8 3 2 9 4],0.9688428273401799
+base,-O3,0.005836363636363637,None
+base,no opt,0.01530909090909091,None
+base,best measured,0.006036363636363637,[ 0 7 3 1 2]
+base,all in order,0.006781818181818181,[ 0 1 2 3 4 5 6 7 8 9]

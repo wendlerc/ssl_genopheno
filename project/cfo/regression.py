@@ -18,9 +18,15 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
 from data import OptimizationsDataModule
-from modules import SelfAttentionEncoder
+from modules import SelfAttentionEncoder, TransformerEncoder
 import wandb
 import yaml
+import numpy as np
+import glob
+import sys
+from shutil import copyfile
+import os
+
 
 class SequenceRegression(pl.LightningModule):
     def __init__(self, encoder,
@@ -47,7 +53,9 @@ class SequenceRegression(pl.LightningModule):
         return self.head(self.encoder(x))
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2))
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2), weight_decay=1e-5)
+        #optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2), weight_decay=1e-5)
+        #optimizer = torch.optim.SGD(self.parameters(), lr=self.my_lr_arg)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.factor)
         return {'optimizer':optimizer, 'lr_scheduler':scheduler, 'monitor':'val_loss'}
     
@@ -60,6 +68,11 @@ class SequenceRegression(pl.LightningModule):
             self.log('train_%s'%name, score(pred, y))
         return loss
     
+    def training_epoch_end(self, outputs):
+        mean_loss = torch.mean(torch.stack([o['loss'] for o in outputs]))
+        self.log('cls_token_norm', torch.sum(self.encoder.cls_token**2).item())
+        self.log('mean_train_loss', mean_loss)
+    
     def validation_step(self, batch, batch_idx):
         x, y = batch
         pred = self.forward(x)
@@ -67,6 +80,11 @@ class SequenceRegression(pl.LightningModule):
         self.log('val_loss', loss)
         for name, score in self.scores.items():
             self.log('valid_%s'%name, score(pred, y))
+        return loss
+            
+    def validation_epoch_end(self, outputs):
+        mean_loss = torch.mean(torch.stack(outputs))
+        self.log('mean_valid_loss', mean_loss)
     
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -75,6 +93,11 @@ class SequenceRegression(pl.LightningModule):
         self.log('test_loss', loss)
         for name, score in self.scores.items():
             self.log('test_%s'%name, score(pred, y))
+        return loss
+            
+    def test_epoch_end(self, outputs):
+        mean_loss = torch.mean(torch.stack(outputs))
+        self.log('mean_test_loss', mean_loss)
 
 def main():
     # ------------
@@ -88,7 +111,7 @@ def main():
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=512, type=int)
-    parser.add_argument('--num_workers', default=12, type=int)
+    parser.add_argument('--num_workers', default=2, type=int)
     # lightingmodule args
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
@@ -123,6 +146,13 @@ def main():
                                project=args.wandb_project, 
                                name=args.wandb_name,
                                config=args)
+    run = wandb_logger.experiment
+    # save file to artifact folder
+    
+    result_dir = args.checkpoint_dir+'/%s/'%wandb_logger.experiment.name 
+    os.makedirs(result_dir, exist_ok=True)
+    copyfile(sys.argv[0], result_dir+sys.argv[0].split('/')[-1])
+
     
     # ------------
     # data
@@ -134,7 +164,16 @@ def main():
     # ------------
     # model
     # ------------
-    encoder = SelfAttentionEncoder(65, 64, 
+    n_flags = datamodule.get_n_flags()
+    # encoder = TransformerEncoder(n_flags+1, n_flags, 
+    #                                num_layers=args.num_layers,
+    #                                d_model=args.d_model,
+    #                                nhead=args.nhead,
+    #                                dim_feedforward=args.dim_feedforward,
+    #                                dropout=args.dropout,
+    #                                activation=args.activation,
+    #                                layer_norm_eps=args.layer_norm_eps)
+    encoder = SelfAttentionEncoder(n_flags+1, n_flags, 
                                    num_layers=args.num_layers,
                                    d_model=args.d_model,
                                    nhead=args.nhead,
@@ -176,7 +215,6 @@ def main():
    
     print("uploading model...")
     #store config and model
-    run = wandb_logger.experiment
     checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
     with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
         yaml.dump(run.config.as_dict(), f, default_flow_style=False)
