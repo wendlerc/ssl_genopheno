@@ -86,7 +86,7 @@ class OptimizationsPretrainingDataModule(pl.LightningDataModule):
                  n_flags=64,
                  batch_size=512, 
                  num_workers=12,
-                 n_train=100000,
+                 n_train=10000,
                  *args,
                  **kwargs):
         """
