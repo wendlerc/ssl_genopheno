@@ -15,12 +15,13 @@ encoders = ["fc", "selfattn", "transformer"]
 
 bonus_flags = ["", "--no_augmentations"]
 
-
+i = 1
 for d in datasets:
     for e in encoders:
         for b in bonus_flags:
+            print("echo %d;"%i)
             print("bsub -G es_puesch -n 12 -R \"rusage[mem=1000, ngpus_excl_p=1]\" -R \"select[gpu_mtotal0>=8000]\"", end="")
             print(" -W 24:00 python project/cfo/augmented_pretrain.py --my_max_epochs 10000 --early_stopping_patience 50", end="")
             print(" --num_workers 12 --csv %s"%(d), end="")
-            print(" --wandb_project cfo_pretrain_cluster --encoder %s %s"%(e, b))
-            print("")
+            print(" --wandb_project cfo_pretrain_cluster --encoder %s %s;"%(e, b))
+            i += 1
