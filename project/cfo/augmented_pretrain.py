@@ -203,7 +203,8 @@ def main():
     wandb_logger = WandbLogger(entity=args.wandb_entity, 
                                project=args.wandb_project, 
                                name=args.wandb_name,
-                               config=args)
+                               config=args,
+                               settings=wandb.Settings(start_method='fork'))
     
     run = wandb_logger.experiment
     # save file to artifact folder
@@ -219,7 +220,8 @@ def main():
                                          num_workers=args.num_workers,
                                          frac_train=0.0,
                                          frac_val=1.0,
-                                         seed=args.seed)
+                                         seed=args.seed,
+                                         paths=args.csv)
     datamodule = AugmentedOptimizationsPretrainingDataModule(ddm, batch_size=args.batch_size, 
                                          num_workers=args.num_workers,
                                          n_train=args.n_train,

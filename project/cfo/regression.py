@@ -111,7 +111,7 @@ class SequenceRegression(pl.LightningModule):
     def test_epoch_end(self, outputs):
         mean_loss = torch.mean(torch.stack(outputs))
         self.log('mean_test_loss', mean_loss)
-        for name, score in self.valid_scores.items():
+        for name, score in self.test_scores.items():
             try:
                 self.log('test_total_%s'%name, score.compute())
             except ValueError:
