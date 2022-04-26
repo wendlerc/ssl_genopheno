@@ -29,5 +29,5 @@ for d in datasets:
                     print("bsub -G ls_krausea -n 12 -R \"rusage[mem=1000, ngpus_excl_p=1]\" -R \"select[gpu_mtotal0>=8000]\"", end="")
                     print(" -W 24:00 python project/cfo/augmented_pretrain.py --my_max_epochs 100000 --early_stopping_patience 100", end="")
                     print(" --num_workers 12 --csv %s --lr %2.8f --num_layers %d"%(d, lr, nl), end="")
-                    print(" --wandb_project cfo_pretrain_cluster --encoder %s %s;"%(e, b))
+                    print(" --wandb_project cfo_pretrain_cluster_sweep --encoder %s %s;"%(e, b))
                     i += 1
