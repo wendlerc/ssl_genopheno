@@ -166,6 +166,7 @@ def main():
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--n_train', type=int, default=10000)
     parser.add_argument('--no_augmentations', action='store_true')
+    parser.add_argument('--only_neighbors', action='store_true')
     parser.add_argument('--csv', type=str, default='datasets/cfo/suite/bitcount/no_reps_bitcount_1_LLVM_61_1000.csv')
     # lightingmodule args
     parser.add_argument('--encoder', type=str, default='fc')
@@ -225,7 +226,8 @@ def main():
     datamodule = AugmentedOptimizationsPretrainingDataModule(ddm, batch_size=args.batch_size, 
                                          num_workers=args.num_workers,
                                          n_train=args.n_train,
-                                         no_augmentations=args.no_augmentations)
+                                         no_augmentations=args.no_augmentations,
+                                         only_neighbors=args.only_neighbors)
 
     # ------------
     # model

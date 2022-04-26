@@ -138,7 +138,7 @@ class TransformerEncoder(nn.Module):
         batch = self.embed(x)
         batch = self.pos_enc(math.sqrt(self.d_model) * batch)
         
-        out = self.enc(batch, self.cls_token.expand(x.shape[0], -1, -1), src_key_padding_mask=src_key_padding_mask)
+        out = self.enc(batch, self.cls_token.expand(x.shape[0], -1, -1))#, src_key_padding_mask=src_key_padding_mask)
         return out[:,0,:]
     
     def get_output_size(self):

@@ -152,11 +152,12 @@ class OptimizationsPretrainingDataModule(pl.LightningDataModule):
 ### version with augmentations
         
 class AugmentedOptimizationsDataset(Dataset):
-    def __init__(self, n_options, length=10000, no_augmentations=False):
+    def __init__(self, n_options, length=10000, no_augmentations=False, only_neighbors=False):
         self.n_options = n_options
         self.gen = UniformOptimizations(n_options)
         self.length=length
         self.no_augmentations = no_augmentations
+        self.only_neighbors = only_neighbors
         
     def __getitem__(self, idx):
         plus_padding = np.zeros(self.n_options, dtype=np.int64)
@@ -166,8 +167,16 @@ class AugmentedOptimizationsDataset(Dataset):
         j = np.random.randint(len(next_opt))
         next_opt2 = next_opt.copy()
         if not self.no_augmentations:
-            next_opt2[i] = next_opt[j]
-            next_opt2[j] = next_opt[i]
+            if self.only_neighbors:
+                if i+1 < len(next_opt):
+                    next_opt2[i] = next_opt[i+1]
+                    next_opt2[i+1] = next_opt[i]
+                elif i-1 >= 0:
+                    next_opt2[i] = next_opt[i-1]
+                    next_opt2[i-1] = next_opt[i]
+            else:
+                next_opt2[i] = next_opt[j]
+                next_opt2[j] = next_opt[i]
         plus_padding[:len(next_opt)] = next_opt
         plus_padding2[:len(next_opt2)] = next_opt2
         tensor1 = torch.tensor(plus_padding, dtype=torch.long)
@@ -185,6 +194,7 @@ class AugmentedOptimizationsPretrainingDataModule(pl.LightningDataModule):
                  num_workers=12,
                  n_train=100000,
                  no_augmentations=False,
+                 only_neighbors=False,
                  *args,
                  **kwargs):
         """
@@ -197,6 +207,7 @@ class AugmentedOptimizationsPretrainingDataModule(pl.LightningDataModule):
         self.downstream_dm = downstream_datamodule
         self.n_flags = downstream_datamodule.get_n_flags()
         self.no_augmentations = no_augmentations
+        self.only_neighbors = only_neighbors
         self.save_hyperparameters()
         
     def prepare_data(self):
@@ -207,7 +218,8 @@ class AugmentedOptimizationsPretrainingDataModule(pl.LightningDataModule):
         
     def train_dataloader(self):
         #print('creating new dataset...')
-        dataset = AugmentedOptimizationsDataset(self.n_flags, self.n_train, no_augmentations=self.no_augmentations)
+        dataset = AugmentedOptimizationsDataset(self.n_flags, self.n_train, no_augmentations=self.no_augmentations, 
+                                                only_neighbors=self.only_neighbors)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):
