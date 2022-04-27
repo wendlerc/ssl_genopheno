@@ -17,6 +17,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
+from pretrain import CompressiveSensingPretraining
 from data import GenotypeDataModule
 from modules import FCEncoder
 import wandb
@@ -24,7 +25,7 @@ import yaml
 import sys
 from shutil import copyfile
 import os
-
+import numpy as np
 
 class GenotypeRegression(pl.LightningModule):
     def __init__(self, encoder,
@@ -127,6 +128,7 @@ def main():
     parser.add_argument('--wandb_name', default=None, type=str)
     parser.add_argument('--wandb_project', default='genotype_supervised', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
+    parser.add_argument('--wandb_pretrained', default=None, type=str)
     # datamodule args
     parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_%s.csv", type=str)
     parser.add_argument('--path', default=None)
@@ -141,6 +143,7 @@ def main():
     parser.add_argument('--d_model', default=256, type=int)
     parser.add_argument('--d_hidden', type=int, default=4000)
     parser.add_argument('--embedding_size', type=int, default=20)
+    parser.add_argument('--num_hidden_layers', default=0, type=int)
     # trainer args
     parser.add_argument('--monitor', type=str, default='mean_valid_loss')
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
@@ -153,22 +156,7 @@ def main():
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     
-    pl.seed_everything(args.seed)
-    # ------------
-    # wandb 
-    # ------------
-    wandb_logger = WandbLogger(entity=args.wandb_entity, 
-                               project=args.wandb_project, 
-                               name=args.wandb_name,
-                               config=args)
-    run = wandb_logger.experiment
-    # save file to artifact folder
-    
-    result_dir = args.checkpoint_dir+'/%s/'%wandb_logger.experiment.name 
-    os.makedirs(result_dir, exist_ok=True)
-    copyfile(sys.argv[0], result_dir+sys.argv[0].split('/')[-1])
-
-    
+    pl.seed_everything(args.seed)    
     # ------------
     # data
     # ------------
@@ -186,14 +174,60 @@ def main():
     # model
     # ------------
     n_feats = datamodule.get_n_feats()
-    encoder = FCEncoder(5, args.embedding_size, args.d_model, n_feats, d_hidden = args.d_hidden)
-
-    model = GenotypeRegression(encoder, lr=args.lr, 
-                               beta1=args.beta1, 
-                               beta2=args.beta2,
-                               factor=args.factor,
-                               monitor=args.monitor)
-
+    
+    if args.wandb_pretrained is None:
+        encoder = FCEncoder(5, args.embedding_size, args.d_model, n_feats, d_hidden = args.d_hidden, num_hidden_layers=args.num_hidden_layers)
+    
+        model = GenotypeRegression(encoder, lr=args.lr, 
+                                   beta1=args.beta1, 
+                                   beta2=args.beta2,
+                                   factor=args.factor,
+                                   monitor=args.monitor)
+    else:
+        
+        run = wandb.init(mode="online",
+                 project='genotype_compressive_sensing_pretraining', 
+                 entity='chrisxx', 
+                 job_type="inference",
+                 dir=".",
+                 settings=wandb.Settings(start_method='fork'))
+        model_at = run.use_artifact("%s:latest"%args.wandb_pretrained)
+        model_dir = model_at.download(root='./artifacts/%s/'%args.wandb_pretrained)
+        with open(model_dir+"/config.yaml") as file:
+            pconfig = yaml.load(file, Loader=yaml.FullLoader)
+        with open(model_dir+"/checkpoint_callback.yaml") as file:
+            scores = yaml.load(file, Loader=yaml.FullLoader)
+        
+        run.finish()
+        
+        mkey = None
+        mscore = np.inf
+        for key, loss in scores.items():
+            if loss < mscore:
+                mscore = loss
+                mkey = key
+        encoder = FCEncoder(5, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
+        pmodel = CompressiveSensingPretraining.load_from_checkpoint('./artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
+        model = GenotypeRegression(pmodel.encoder, lr=args.lr, 
+                                   beta1=args.beta1, 
+                                   beta2=args.beta2,
+                                   factor=args.factor,
+                                   monitor=args.monitor)
+    
+    # ------------
+    # wandb 
+    # ------------
+    wandb_logger = WandbLogger(entity=args.wandb_entity, 
+                               project=args.wandb_project, 
+                               name=args.wandb_name,
+                               config=args)
+    run = wandb_logger.experiment
+    # save file to artifact folder
+    
+    result_dir = args.checkpoint_dir+'/%s/'%wandb_logger.experiment.name 
+    os.makedirs(result_dir, exist_ok=True)
+    copyfile(sys.argv[0], result_dir+sys.argv[0].split('/')[-1])
+        
     # ------------
     # training
     # ------------

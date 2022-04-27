@@ -175,6 +175,7 @@ def main():
     parser.add_argument('--factor', default=0.5, type=float)
     # fc args
     parser.add_argument('--d_model', default=256, type=int)
+    parser.add_argument('--num_hidden_layers', default=0, type=int)
     parser.add_argument('--d_hidden', type=int, default=4000)
     parser.add_argument('--embedding_size', type=int, default=20)
     # trainer args
@@ -230,7 +231,7 @@ def main():
     # ------------
     n_feats = datamodule.get_n_feats()
     
-    encoder = FCEncoder(5, 20, args.d_model, n_feats, d_hidden=args.d_hidden)
+    encoder = FCEncoder(5, 20, args.d_model, n_feats, d_hidden=args.d_hidden, num_hidden_layers=args.num_hidden_layers)
         
 
     model = CompressiveSensingPretraining(encoder, lr=args.lr, 

@@ -98,8 +98,12 @@ class AugmentedGenotypeDataset(Dataset):
         
     def __getitem__(self, idx):
         d1 = np.random.randint(0, 5, self.n_feats)
-        d2 = np.random.randint(1, 5, self.n_feats)
-        d2[d1 == 0] = 0
+        d2 = d1.copy()
+        if not self.no_augmentations:
+            new = np.random.randint(1, 5, self.n_feats)
+            idcs = np.where(d1 > 0)[0]
+            idx = idcs[np.random.randint(len(idcs))]
+            d2[idx] = new[idx]
         if self.no_augmentations:
             d2 = d1.copy()
 
