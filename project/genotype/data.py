@@ -91,19 +91,23 @@ class GenotypeDataModule(pl.LightningDataModule):
     
         
 class AugmentedGenotypeDataset(Dataset):
-    def __init__(self, n_feats, length=10000, no_augmentations=False):
+    def __init__(self, n_feats, length=10000, no_augmentations=False, hard=False):
         self.n_feats = n_feats
         self.length=length
         self.no_augmentations = no_augmentations
+        self.hard = hard
         
     def __getitem__(self, idx):
         d1 = np.random.randint(0, 5, self.n_feats)
         d2 = d1.copy()
         if not self.no_augmentations:
             new = np.random.randint(1, 5, self.n_feats)
-            idcs = np.where(d1 > 0)[0]
-            idx = idcs[np.random.randint(len(idcs))]
-            d2[idx] = new[idx]
+            if not self.hard:
+                idcs = np.where(d1 > 0)[0]
+                idx = idcs[np.random.randint(len(idcs))]
+                d2[idx] = new[idx]
+            else:
+                d2[d1 > 0] = new[d1 > 0]
         if self.no_augmentations:
             d2 = d1.copy()
 
@@ -123,6 +127,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
                  n_train=100000,
                  no_augmentations=False,
                  only_neighbors=False,
+                 hard=False,
                  *args,
                  **kwargs):
         """
@@ -136,7 +141,9 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         self.n_feats = downstream_datamodule.get_n_feats()
         self.no_augmentations = no_augmentations
         self.only_neighbors = only_neighbors
+        self.hard = hard
         self.save_hyperparameters()
+        
         
     def prepare_data(self):
         self.downstream_dm.prepare_data()
@@ -146,7 +153,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         
     def train_dataloader(self):
         #print('creating new dataset...')
-        dataset = AugmentedGenotypeDataset(self.n_feats, self.n_train, no_augmentations=self.no_augmentations)
+        dataset = AugmentedGenotypeDataset(self.n_feats, self.n_train, no_augmentations=self.no_augmentations, hard=self.hard)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):

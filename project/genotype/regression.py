@@ -160,7 +160,7 @@ def main():
     # ------------
     # data
     # ------------
-    if args.path_pattern is None:
+    if args.path is not None:
         paths = [args.path]
     else:
         pattern = args.path_pattern
@@ -208,7 +208,7 @@ def main():
                 mkey = key
         encoder = FCEncoder(5, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
         pmodel = CompressiveSensingPretraining.load_from_checkpoint('./artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
-        model = GenotypeRegression(pmodel.encoder, lr=args.lr, 
+        model = GenotypeRegression(pmodel, lr=args.lr, 
                                    beta1=args.beta1, 
                                    beta2=args.beta2,
                                    factor=args.factor,

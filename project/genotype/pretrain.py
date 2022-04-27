@@ -150,6 +150,9 @@ class CompressiveSensingPretraining(pl.LightningModule):
     def test_epoch_end(self, outputs):
         return self.validation_epoch_end(outputs)
     
+    def get_output_size(self):
+        return self.encoder.get_output_size()
+    
 
 def main():
     # ------------
@@ -168,6 +171,7 @@ def main():
     parser.add_argument('--no_augmentations', action='store_true')
     parser.add_argument('--only_neighbors', action='store_true')
     parser.add_argument('--path_pattern', type=str, default="datasets/genotype/cas9/cas9_%s.csv")
+    parser.add_argument('--hard', action='store_true')
     # lightingmodule args
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
@@ -224,7 +228,8 @@ def main():
                                          num_workers=args.num_workers,
                                          n_train=args.n_train,
                                          no_augmentations=args.no_augmentations,
-                                         only_neighbors=args.only_neighbors)
+                                         only_neighbors=args.only_neighbors,
+                                         hard = args.hard)
 
     # ------------
     # model
