@@ -91,18 +91,23 @@ class GenotypeDataModule(pl.LightningDataModule):
     
         
 class AugmentedGenotypeDataset(Dataset):
-    def __init__(self, n_feats, length=10000, no_augmentations=False, hard=False):
+    def __init__(self, n_feats, length=10000, no_augmentations=False, hard=False, easy=False):
         self.n_feats = n_feats
         self.length=length
         self.no_augmentations = no_augmentations
         self.hard = hard
+        self.easy = easy
         
     def __getitem__(self, idx):
         d1 = np.random.randint(0, 5, self.n_feats)
         d2 = d1.copy()
         if not self.no_augmentations:
             new = np.random.randint(1, 5, self.n_feats)
-            if not self.hard:
+            if self.easy:
+                idcs = np.where(d1 > 0)[0]
+                idx = idcs[np.random.randint(len(idcs))]
+                d2[idx] = 0
+            elif not self.hard:
                 idcs = np.where(d1 > 0)[0]
                 idx = idcs[np.random.randint(len(idcs))]
                 d2[idx] = new[idx]
