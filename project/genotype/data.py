@@ -13,6 +13,11 @@ import numpy as np
 import torch
 
 
+letter2int = {'A':1, 'C':2, 'G':3, 'T':4}
+int2letter = {1:'A', 2:'C', 3:'G', 4:'T'}
+pair2int = {('A', 'A'): 0, ('A', 'C'): 1, ('A', 'G'): 2, ('A', 'T'): 3, ('C', 'A'): 4, ('C', 'C'): 5, ('C', 'G'): 6, ('C', 'T'): 7, ('G', 'A'): 8, ('G', 'C'): 9, ('G', 'G'): 10, ('G', 'T'): 11, ('T', 'A'): 12, ('T', 'C'): 13, ('T', 'G'): 14, ('T', 'T'): 15}
+
+
 class GenotypeDataModule(pl.LightningDataModule):
     def __init__(self, 
                  batch_size=512, 
@@ -91,31 +96,63 @@ class GenotypeDataModule(pl.LightningDataModule):
     
         
 class AugmentedGenotypeDataset(Dataset):
-    def __init__(self, n_feats, length=10000, no_augmentations=False, hard=False, easy=False):
+    def __init__(self, gene_string, n_feats, length=10000, no_augmentations=False, hard=False, easy=False, genotype_list=None, pairs=True):
         self.n_feats = n_feats
         self.length=length
         self.no_augmentations = no_augmentations
         self.hard = hard
         self.easy = easy
+        self.genotype_list = genotype_list
+        self.gene_string = gene_string
+        self.impossible_mutations = np.asarray([letter2int[base] for base in gene_string])
+        self.pairs = pairs
+        #print(self.impossible_mutations)
+        #print(self.impossible_mutations.shape)
+        if genotype_list is not None:
+            self.length = len(genotype_list)
         
     def __getitem__(self, idx):
-        d1 = np.random.randint(0, 5, self.n_feats)
-        d2 = d1.copy()
-        if not self.no_augmentations:
-            new = np.random.randint(1, 5, self.n_feats)
-            if self.easy:
-                idcs = np.where(d1 > 0)[0]
-                idx = idcs[np.random.randint(len(idcs))]
-                d2[idx] = 0
-            elif not self.hard:
-                idcs = np.where(d1 > 0)[0]
-                idx = idcs[np.random.randint(len(idcs))]
-                d2[idx] = new[idx]
-            else:
-                d2[d1 > 0] = new[d1 > 0]
-        if self.no_augmentations:
-            d2 = d1.copy()
+        if self.genotype_list is None:
+            d1 = np.random.randint(0, 5, self.n_feats)
+        else:
+            d1 = self.genotype_list[idx]
 
+        d2 = d1.copy()
+        if self.pairs:
+            d0 = d1.copy()
+            idcs = np.where((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15))[0]
+            if len(idcs) > 0:
+                idx1 = idcs[np.random.randint(len(idcs))]
+                idx2 = idcs[np.random.randint(len(idcs))]
+                new_base1 = int2letter[np.random.randint(1, 5)]
+                new_base2 = int2letter[np.random.randint(1, 5)]
+                while pair2int[(self.gene_string[idx1], new_base1)] in [pair2int[(self.gene_string[idx1], self.gene_string[idx1])], d0[idx1]]:
+                    new_base1 = int2letter[np.random.randint(1, 5)]
+                while pair2int[(self.gene_string[idx2], new_base2)] in [pair2int[(self.gene_string[idx2], self.gene_string[idx2])], d0[idx2]]:
+                    new_base2 = int2letter[np.random.randint(1, 5)]
+                d1[idx1] = pair2int[(self.gene_string[idx1], new_base1)]
+                d2[idx2] = pair2int[(self.gene_string[idx2], new_base2)]
+        else:
+            if not self.no_augmentations:
+                new = np.random.randint(1, 5, self.n_feats)
+                if self.easy:
+                    idcs = np.where(d1 > 0)[0]
+                    if len(idcs) > 0: 
+                        idx = idcs[np.random.randint(len(idcs))]
+                        d2[idx] = 0
+                elif not self.hard:
+                    idcs = np.where(d1 > 0)[0]
+                    if len(idcs) > 0:
+                        idx = idcs[np.random.randint(len(idcs))]
+                        new_base = np.random.randint(1, 5)
+                        while new_base == self.impossible_mutations[idx]:
+                            new_base = np.random.randint(1, 5)
+                        d2[idx] = new_base
+                else:
+                    d2[d1 > 0] = new[d1 > 0]
+            if self.no_augmentations:
+                d2 = d1.copy()
+    
         tensor1 = torch.tensor(d1, dtype=torch.long)
         tensor2 = torch.tensor(d2, dtype=torch.long)
         return tensor1, tensor2
@@ -127,12 +164,14 @@ class AugmentedGenotypeDataset(Dataset):
 class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
     def __init__(self, 
                  downstream_datamodule,
+                 gene_string,
                  batch_size=512, 
                  num_workers=12,
                  n_train=100000,
                  no_augmentations=False,
                  only_neighbors=False,
                  hard=False,
+                 genotype_list = None,
                  *args,
                  **kwargs):
         """
@@ -147,6 +186,8 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         self.no_augmentations = no_augmentations
         self.only_neighbors = only_neighbors
         self.hard = hard
+        self.genotype_list = genotype_list
+        self.gene_string = gene_string
         self.save_hyperparameters()
         
         
@@ -158,7 +199,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         
     def train_dataloader(self):
         #print('creating new dataset...')
-        dataset = AugmentedGenotypeDataset(self.n_feats, self.n_train, no_augmentations=self.no_augmentations, hard=self.hard)
+        dataset = AugmentedGenotypeDataset(self.gene_string, self.n_feats, self.n_train, no_augmentations=self.no_augmentations, hard=self.hard, genotype_list = self.genotype_list)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):

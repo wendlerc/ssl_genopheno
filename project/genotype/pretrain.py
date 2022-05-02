@@ -31,6 +31,7 @@ import glob
 import sys
 from shutil import copyfile
 import os
+import pandas as pd
 
 
 class CompressiveSensingPretraining(pl.LightningModule):
@@ -162,7 +163,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     # wandb args
     parser.add_argument('--wandb_name', default=None, type=str)
-    parser.add_argument('--wandb_project', default='genotype_compressive_sensing_pretraining', type=str)
+    parser.add_argument('--wandb_project', default='genotype_pairs_compressive_sensing_pretraining', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=512, type=int)
@@ -170,7 +171,8 @@ def main():
     parser.add_argument('--n_train', type=int, default=10000)
     parser.add_argument('--no_augmentations', action='store_true')
     parser.add_argument('--only_neighbors', action='store_true')
-    parser.add_argument('--path_pattern', type=str, default="datasets/genotype/cas9/cas9_%s.csv")
+    parser.add_argument('--path_pattern', type=str, default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv")
+    parser.add_argument('--gene_string', type=str, default="GACGCATAAAGATGAGACGCTGG")
     parser.add_argument('--hard', action='store_true')
     # lightingmodule args
     parser.add_argument('--lr', default=1e-3, type=float)
@@ -217,6 +219,8 @@ def main():
     # ------------
     # data
     # ------------
+    df = pd.read_csv(args.path_pattern%'full')
+    genotype_list = df.to_numpy()[:, 1:-1]
     paths = [args.path_pattern%'train', args.path_pattern%'valid', args.path_pattern%'test']
     ddm = GenotypeDataModule(batch_size=args.batch_size, 
                                          num_workers=args.num_workers,
@@ -224,19 +228,26 @@ def main():
                                          frac_val=1.0,
                                          seed=args.seed,
                                          paths=paths)
-    datamodule = AugmentedGenotypePretrainingDataModule(ddm, batch_size=args.batch_size, 
+    datamodule = AugmentedGenotypePretrainingDataModule(ddm, args.gene_string, batch_size=args.batch_size, 
                                          num_workers=args.num_workers,
                                          n_train=args.n_train,
                                          no_augmentations=args.no_augmentations,
                                          only_neighbors=args.only_neighbors,
-                                         hard = args.hard)
+                                         hard = args.hard,
+                                         genotype_list = genotype_list)
+    #print(args.gene_string)
+    #print(len(args.gene_string))
+    #print('-------------------')
+    #print(genotype_list.shape)
+    #exit()
+
 
     # ------------
     # model
     # ------------
     n_feats = datamodule.get_n_feats()
     
-    encoder = FCEncoder(5, 20, args.d_model, n_feats, d_hidden=args.d_hidden, num_hidden_layers=args.num_hidden_layers)
+    encoder = FCEncoder(16, args.embedding_size, args.d_model, n_feats, d_hidden=args.d_hidden, num_hidden_layers=args.num_hidden_layers)
         
 
     model = CompressiveSensingPretraining(encoder, lr=args.lr, 

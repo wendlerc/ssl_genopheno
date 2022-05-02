@@ -126,11 +126,11 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     # wandb args
     parser.add_argument('--wandb_name', default=None, type=str)
-    parser.add_argument('--wandb_project', default='genotype_supervised', type=str)
+    parser.add_argument('--wandb_project', default='genotype_pairs_supervised', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     parser.add_argument('--wandb_pretrained', default=None, type=str)
     # datamodule args
-    parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_%s.csv", type=str)
+    parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv", type=str)
     parser.add_argument('--path', default=None)
     parser.add_argument('--batch_size', default=512, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
@@ -176,7 +176,7 @@ def main():
     n_feats = datamodule.get_n_feats()
     
     if args.wandb_pretrained is None:
-        encoder = FCEncoder(5, args.embedding_size, args.d_model, n_feats, d_hidden = args.d_hidden, num_hidden_layers=args.num_hidden_layers)
+        encoder = FCEncoder(16, args.embedding_size, args.d_model, n_feats, d_hidden = args.d_hidden, num_hidden_layers=args.num_hidden_layers)
     
         model = GenotypeRegression(encoder, lr=args.lr, 
                                    beta1=args.beta1, 
@@ -186,7 +186,7 @@ def main():
     else:
         
         run = wandb.init(mode="online",
-                 project='genotype_compressive_sensing_pretraining', 
+                 project='genotype_pairs_compressive_sensing_pretraining', 
                  entity='chrisxx', 
                  job_type="inference",
                  dir=".",
@@ -206,7 +206,7 @@ def main():
             if loss < mscore:
                 mscore = loss
                 mkey = key
-        encoder = FCEncoder(5, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
+        encoder = FCEncoder(16, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
         pmodel = CompressiveSensingPretraining.load_from_checkpoint('./artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
         model = GenotypeRegression(pmodel, lr=args.lr, 
                                    beta1=args.beta1, 
