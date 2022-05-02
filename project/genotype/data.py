@@ -96,7 +96,7 @@ class GenotypeDataModule(pl.LightningDataModule):
     
         
 class AugmentedGenotypeDataset(Dataset):
-    def __init__(self, gene_string, n_feats, length=10000, no_augmentations=False, hard=False, easy=False, genotype_list=None, pairs=True):
+    def __init__(self, gene_string, n_feats, length=10000, no_augmentations=False, hard=False, easy=False, genotype_list=None, pairs=True, n_augs=2):
         self.n_feats = n_feats
         self.length=length
         self.no_augmentations = no_augmentations
@@ -106,6 +106,7 @@ class AugmentedGenotypeDataset(Dataset):
         self.gene_string = gene_string
         self.impossible_mutations = np.asarray([letter2int[base] for base in gene_string])
         self.pairs = pairs
+        self.n_augs = n_augs
         #print(self.impossible_mutations)
         #print(self.impossible_mutations.shape)
         if genotype_list is not None:
@@ -121,7 +122,7 @@ class AugmentedGenotypeDataset(Dataset):
         if self.pairs:
             d0 = d1.copy()
             idcs = np.where((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15))[0]
-            if len(idcs) > 0:
+            for aug in range(min(len(idcs), self.n_augs)):
                 idx1 = idcs[np.random.randint(len(idcs))]
                 idx2 = idcs[np.random.randint(len(idcs))]
                 new_base1 = int2letter[np.random.randint(1, 5)]
@@ -132,6 +133,7 @@ class AugmentedGenotypeDataset(Dataset):
                     new_base2 = int2letter[np.random.randint(1, 5)]
                 d1[idx1] = pair2int[(self.gene_string[idx1], new_base1)]
                 d2[idx2] = pair2int[(self.gene_string[idx2], new_base2)]
+                
         else:
             if not self.no_augmentations:
                 new = np.random.randint(1, 5, self.n_feats)
@@ -172,6 +174,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
                  only_neighbors=False,
                  hard=False,
                  genotype_list = None,
+                 n_augs = 2,
                  *args,
                  **kwargs):
         """
@@ -188,6 +191,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         self.hard = hard
         self.genotype_list = genotype_list
         self.gene_string = gene_string
+        self.n_augs = n_augs
         self.save_hyperparameters()
         
         
@@ -199,7 +203,8 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         
     def train_dataloader(self):
         #print('creating new dataset...')
-        dataset = AugmentedGenotypeDataset(self.gene_string, self.n_feats, self.n_train, no_augmentations=self.no_augmentations, hard=self.hard, genotype_list = self.genotype_list)
+        dataset = AugmentedGenotypeDataset(self.gene_string, self.n_feats, self.n_train, no_augmentations=self.no_augmentations, hard=self.hard, 
+                                           genotype_list = self.genotype_list, n_augs=self.n_augs)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):

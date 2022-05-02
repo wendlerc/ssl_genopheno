@@ -195,6 +195,7 @@ def main():
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
     parser.add_argument('--my_max_epochs', type=int, default=500)
+    parser.add_argument('--n_augs', type=int, default=2)
     
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
@@ -234,7 +235,8 @@ def main():
                                          no_augmentations=args.no_augmentations,
                                          only_neighbors=args.only_neighbors,
                                          hard = args.hard,
-                                         genotype_list = genotype_list)
+                                         genotype_list = genotype_list,
+                                         n_augs = args.n_augs)
     #print(args.gene_string)
     #print(len(args.gene_string))
     #print('-------------------')
@@ -260,14 +262,25 @@ def main():
     # training
     # ------------
     checkpoint_callback = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
+                                          filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lasso_val_loss}-train',
                                           save_top_k=args.checkpoint_save_top_k,
                                           monitor=args.monitor)
+    checkpoint_callback2 = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
+                                           filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lasso_val_loss}-ls',
+                                           save_top_k=args.checkpoint_save_top_k,
+                                           monitor="ls_val_loss")
+    checkpoint_callback3 = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
+                                           filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lasso_val_loss}-lasso',
+                                           save_top_k=args.checkpoint_save_top_k,
+                                           monitor='lasso_val_loss')
     es_callback = EarlyStopping(monitor=args.monitor, 
                                 mode=args.early_stopping_mode, 
                                 patience=args.early_stopping_patience)
     lr_monitor = LearningRateMonitor()
     trainer = pl.Trainer.from_argparse_args(args, logger=wandb_logger,
                                             callbacks=[checkpoint_callback,
+                                                       checkpoint_callback2,
+                                                       checkpoint_callback3,
                                                        es_callback, lr_monitor],
                                             log_every_n_steps=args.my_log_every_n_steps,
                                             accelerator=args.my_accelerator,
@@ -298,7 +311,11 @@ def main():
    
     print("uploading model...")
     #store config and model
-    checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
+    checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/mean_train_loss_checkpoint_callback.yaml')
+    checkpoint_callback2.to_yaml(checkpoint_callback.dirpath+'/ls_val_loss_checkpoint_callback.yaml')
+    checkpoint_callback3.to_yaml(checkpoint_callback.dirpath+'/lasso_val_loss_checkpoint_callback.yaml')
+    checkpoint_callback3.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
+    
     with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
         yaml.dump(run.config.as_dict(), f, default_flow_style=False)
     
