@@ -40,7 +40,8 @@ class CompressiveSensingPretraining(pl.LightningModule):
                  beta1 = 0.9,
                  beta2 = 0.95,
                  factor = 0.5,
-                 monitor = 'mean_train_loss'):
+                 monitor = 'mean_train_loss',
+                 use_bn = True):
         super().__init__()
         self.encoder = encoder       
         self.bn = nn.BatchNorm1d(encoder.get_output_size(), affine=False)# this makes sure that dropout does not mess up our loss
@@ -50,9 +51,13 @@ class CompressiveSensingPretraining(pl.LightningModule):
         self.factor = factor
         self.loss = BarlowTwinsLoss()
         self.monitor = monitor
+        self.use_bn = use_bn
         
     def forward(self, x):
-        return self.bn(self.encoder(x))
+        if self.use_bn:
+            return self.bn(self.encoder(x))
+        return self.encoder(x)
+        
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.my_lr_arg, betas=(self.beta1, self.beta2), weight_decay=1e-5)
@@ -166,12 +171,13 @@ def main():
     parser.add_argument('--wandb_project', default='genotype_pairs_compressive_sensing_pretraining', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
-    parser.add_argument('--batch_size', default=512, type=int)
+    parser.add_argument('--batch_size', default=8196//16, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--n_train', type=int, default=10000)
     parser.add_argument('--no_augmentations', action='store_true')
     parser.add_argument('--only_neighbors', action='store_true')
     parser.add_argument('--path_pattern', type=str, default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv")
+    parser.add_argument('--path_pretrain', type=str, default="datasets/genotype/cas9/cas9_pairs_all.csv")
     parser.add_argument('--gene_string', type=str, default="GACGCATAAAGATGAGACGCTGG")
     parser.add_argument('--hard', action='store_true')
     # lightingmodule args
@@ -180,9 +186,9 @@ def main():
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
     # fc args
-    parser.add_argument('--d_model', default=256, type=int)
+    parser.add_argument('--d_model', default=8196//16, type=int)
     parser.add_argument('--num_hidden_layers', default=0, type=int)
-    parser.add_argument('--d_hidden', type=int, default=4000)
+    parser.add_argument('--d_hidden', type=int, default=8196//16)
     parser.add_argument('--embedding_size', type=int, default=20)
     # trainer args
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
@@ -220,7 +226,7 @@ def main():
     # ------------
     # data
     # ------------
-    df = pd.read_csv(args.path_pattern%'full')
+    df = pd.read_csv(args.path_pretrain)
     genotype_list = df.to_numpy()[:, 1:-1]
     paths = [args.path_pattern%'train', args.path_pattern%'valid', args.path_pattern%'test']
     ddm = GenotypeDataModule(batch_size=args.batch_size, 
@@ -256,7 +262,8 @@ def main():
                                beta1=args.beta1, 
                                beta2=args.beta2,
                                factor=args.factor,
-                               monitor=args.monitor)
+                               monitor=args.monitor,
+                               use_bn = False)
 
     # ------------
     # training
