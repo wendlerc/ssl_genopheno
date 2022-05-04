@@ -208,11 +208,11 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):
-        val = self.downstream_dm.val_dataloader()
+        val = self.downstream_dm.train_dataloader()
         return val
     
     def test_dataloader(self):
-        val = self.downstream_dm.val_dataloader()
+        val = self.downstream_dm.train_dataloader()
         return val
     
     def get_n_feats(self):

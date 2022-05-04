@@ -223,7 +223,7 @@ def main():
                 mkey = key
         print('using %s'%mkey)
         encoder = FCEncoder(16, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
-        pmodel = CompressiveSensingPretraining.load_from_checkpoint('./artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
+        pmodel = CompressiveSensingPretraining.load_from_checkpoint('./artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder, use_bn=True)
         model = GenotypeRegression(pmodel, lr=args.lr, 
                                    beta1=args.beta1, 
                                    beta2=args.beta2,

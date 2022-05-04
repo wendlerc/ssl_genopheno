@@ -41,7 +41,8 @@ class CompressiveSensingPretraining(pl.LightningModule):
                  beta2 = 0.95,
                  factor = 0.5,
                  monitor = 'mean_train_loss',
-                 use_bn = True):
+                 use_bn = False,
+                 downstream_validation_loader = None):
         super().__init__()
         self.encoder = encoder       
         self.bn = nn.BatchNorm1d(encoder.get_output_size(), affine=False)# this makes sure that dropout does not mess up our loss
@@ -52,6 +53,8 @@ class CompressiveSensingPretraining(pl.LightningModule):
         self.loss = BarlowTwinsLoss()
         self.monitor = monitor
         self.use_bn = use_bn
+        self.downstream_validation_loader = downstream_validation_loader
+
         
     def forward(self, x):
         if self.use_bn:
@@ -102,11 +105,25 @@ class CompressiveSensingPretraining(pl.LightningModule):
         X = np.concatenate(X, axis=0)
         Y = np.concatenate(Y, axis=0)
         Y = Y[:, 0]        
-        n_train = int(0.8 * len(X))
-        X_train = X[:n_train]
-        Y_train = Y[:n_train]
-        X_test = X[n_train:]
-        Y_test = Y[n_train:]
+        if self.downstream_validation_loader is None:
+            n_train = int(0.8 * len(X))
+            X_train = X[:n_train]
+            Y_train = Y[:n_train]
+            X_test = X[n_train:]
+            Y_test = Y[n_train:]
+        else:
+            X_train = X
+            Y_train = Y
+            X_test = []
+            Y_test = []
+            for batch in self.downstream_validation_loader:
+                x, y = batch
+                pred = self.forward(x.to(outputs[0][0].device))
+                X_test = [pred.detach().cpu().numpy()]
+                Y_test = [y.detach().cpu().numpy()]
+            X_test = np.concatenate(X_test, axis=0)
+            Y_test = np.concatenate(Y_test, axis=0)
+            Y_test = Y_test[:, 0]
         #reg = LassoCV(cv=5, eps=1e-3, max_iter=10000)
         reg = LassoLarsCV(cv=5)
         reg.fit(X_train, Y_train)
@@ -198,7 +215,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     # wandb args
     parser.add_argument('--wandb_name', default=None, type=str)
-    parser.add_argument('--wandb_project', default='genotype_clean_pretraining', type=str)
+    parser.add_argument('--wandb_project', default='genotype_pretraining', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=8196//32, type=int)
@@ -261,8 +278,6 @@ def main():
     paths = [args.path_pattern%'train', args.path_pattern%'valid', args.path_pattern%'test']
     ddm = GenotypeDataModule(batch_size=args.batch_size, 
                                          num_workers=args.num_workers,
-                                         frac_train=0.0,
-                                         frac_val=1.0,
                                          seed=args.seed,
                                          paths=paths)
     datamodule = AugmentedGenotypePretrainingDataModule(ddm, args.gene_string, batch_size=args.batch_size, 
@@ -273,16 +288,13 @@ def main():
                                          hard = args.hard,
                                          genotype_list = genotype_list,
                                          n_augs = args.n_augs)
-    #print(args.gene_string)
-    #print(len(args.gene_string))
-    #print('-------------------')
-    #print(genotype_list.shape)
-    #exit()
 
 
     # ------------
     # model
     # ------------
+    datamodule.prepare_data()
+    datamodule.setup()
     n_feats = datamodule.get_n_feats()
     
     encoder = FCEncoder(16, args.embedding_size, args.d_model, n_feats, d_hidden=args.d_hidden, num_hidden_layers=args.num_hidden_layers)
@@ -293,7 +305,8 @@ def main():
                                beta2=args.beta2,
                                factor=args.factor,
                                monitor=args.monitor,
-                               use_bn = False)
+                               use_bn = False,
+                               downstream_validation_loader=datamodule.val_dataloader())
 
     # ------------
     # training
