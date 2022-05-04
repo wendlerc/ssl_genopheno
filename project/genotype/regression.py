@@ -33,17 +33,23 @@ class GenotypeRegression(pl.LightningModule):
                  beta1 = 0.9,
                  beta2 = 0.95,
                  factor = 0.5,
+                 l1_coef = 1.,
+                 freeze = False,
                  scores = {'r2': torchmetrics.R2Score},
                  monitor = 'mean_valid_loss'):
         super().__init__()
         self.encoder = encoder        
+        if freeze:
+            for param in self.encoder.parameters():
+                param.requires_grad = False
         hidden_size = encoder.get_output_size()
-        self.head = nn.Sequential(nn.Linear(hidden_size, hidden_size),
-                                   nn.ReLU(inplace=True),
-                                   nn.Linear(hidden_size, hidden_size),
-                                   nn.ReLU(inplace=True),
-                                   nn.Linear(hidden_size, 1))
-        
+        #self.head = nn.Sequential(nn.Linear(hidden_size, hidden_size),
+        #                           nn.ReLU(inplace=True),
+        #                           nn.Linear(hidden_size, hidden_size),
+        #                           nn.ReLU(inplace=True),
+        #                           nn.Linear(hidden_size, 1))
+        self.head = nn.Linear(hidden_size, 1)
+        self.l1_coef = l1_coef
         self.scores = scores
         self.train_scores = nn.ModuleDict({key: score() for key, score in scores.items()})
         self.valid_scores = nn.ModuleDict({key: score() for key, score in scores.items()})
@@ -66,7 +72,11 @@ class GenotypeRegression(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         pred = self.forward(x)
-        loss = F.mse_loss(pred, y)
+        if self.l1_coef > 0:
+            l1 = sum(p.abs().mean() for p in self.head.parameters())
+            loss = F.mse_loss(pred, y) + self.l1_coef*l1
+        else:
+            loss = F.mse_loss(pred, y)
         self.log('train_loss', loss)
         for name, score in self.train_scores.items():
             self.log('train_%s'%name, score(pred, y))
@@ -126,7 +136,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     # wandb args
     parser.add_argument('--wandb_name', default=None, type=str)
-    parser.add_argument('--wandb_project', default='genotype_pairs_supervised', type=str)
+    parser.add_argument('--wandb_project', default='genotype_clean_supervised', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     parser.add_argument('--wandb_pretrained', default=None, type=str)
     parser.add_argument('--checkpoint_yaml', default='checkpoint_callback.yaml')
@@ -140,6 +150,8 @@ def main():
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
+    parser.add_argument('--l1_coef', default=1., type=float)
+    parser.add_argument('--freeze', action='store_true')
     # fc args
     parser.add_argument('--d_model', default=256, type=int)
     parser.add_argument('--d_hidden', type=int, default=4000)
@@ -178,16 +190,18 @@ def main():
     
     if args.wandb_pretrained is None:
         encoder = FCEncoder(16, args.embedding_size, args.d_model, n_feats, d_hidden = args.d_hidden, num_hidden_layers=args.num_hidden_layers)
-    
-        model = GenotypeRegression(encoder, lr=args.lr, 
+        pmodel = CompressiveSensingPretraining(encoder, use_bn=False)
+        model = GenotypeRegression(pmodel, lr=args.lr, 
                                    beta1=args.beta1, 
                                    beta2=args.beta2,
                                    factor=args.factor,
-                                   monitor=args.monitor)
+                                   monitor=args.monitor,
+                                   l1_coef = args.l1_coef,
+                                   freeze= args.freeze)
     else:
         
         run = wandb.init(mode="online",
-                 project='genotype_pairs_compressive_sensing_pretraining', 
+                 project='genotype_clean_pretraining', 
                  entity='chrisxx', 
                  job_type="inference",
                  dir=".",
@@ -207,13 +221,16 @@ def main():
             if loss < mscore:
                 mscore = loss
                 mkey = key
+        print('using %s'%mkey)
         encoder = FCEncoder(16, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
         pmodel = CompressiveSensingPretraining.load_from_checkpoint('./artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
         model = GenotypeRegression(pmodel, lr=args.lr, 
                                    beta1=args.beta1, 
                                    beta2=args.beta2,
                                    factor=args.factor,
-                                   monitor=args.monitor)
+                                   monitor=args.monitor,
+                                   l1_coef = args.l1_coef,
+                                   freeze= args.freeze)
     
     # ------------
     # wandb 

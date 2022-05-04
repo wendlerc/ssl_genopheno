@@ -92,7 +92,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
         return pred, y
     
     
-    def validation_epoch_end_lasso(self, outputs):
+    def validation_epoch_end_lassolars(self, outputs):
         X = []
         Y = []
         for batch in outputs:
@@ -113,8 +113,37 @@ class CompressiveSensingPretraining(pl.LightningModule):
         Y_pred = reg.predict(X_test)
         r2 = r2_score(Y_test, Y_pred)
         loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
+        self.log('lassolars downstream R2', r2)
+        self.log('lassolars_val_loss', loss)
+        self.log('lassolars alpha', reg.alpha_)
+        print('Lassolars: downstream R2 %2.4f loss %2.4f'%(r2, loss))
+        return loss
+    
+    
+    def validation_epoch_end_lasso(self, outputs):
+        X = []
+        Y = []
+        for batch in outputs:
+            x, y = batch
+            X += [x.detach().cpu().numpy()]
+            Y += [y.detach().cpu().numpy()]
+        X = np.concatenate(X, axis=0)
+        Y = np.concatenate(Y, axis=0)
+        Y = Y[:, 0]        
+        n_train = int(0.8 * len(X))
+        X_train = X[:n_train]
+        Y_train = Y[:n_train]
+        X_test = X[n_train:]
+        Y_test = Y[n_train:]
+        reg = LassoCV(cv=5, eps=1e-3, max_iter=10000)
+        #reg = LassoLarsCV(cv=5)
+        reg.fit(X_train, Y_train)
+        Y_pred = reg.predict(X_test)
+        r2 = r2_score(Y_test, Y_pred)
+        loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
         self.log('lasso downstream R2', r2)
         self.log('lasso_val_loss', loss)
+        self.log('lasso alpha', reg.alpha_)
         print('Lasso: downstream R2 %2.4f loss %2.4f'%(r2, loss))
         return loss
     
@@ -147,7 +176,8 @@ class CompressiveSensingPretraining(pl.LightningModule):
     
     def validation_epoch_end(self, outputs):
         l1 = self.validation_epoch_end_least_squares(outputs)
-        l2 = self.validation_epoch_end_lasso(outputs)
+        l2 = self.validation_epoch_end_lassolars(outputs)
+        #l3 = self.validation_epoch_end_lasso(outputs)
         self.log('val_loss', l2)
         
     def test_step(self, batch, batch_idx):
@@ -168,10 +198,10 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     # wandb args
     parser.add_argument('--wandb_name', default=None, type=str)
-    parser.add_argument('--wandb_project', default='genotype_pairs_compressive_sensing_pretraining', type=str)
+    parser.add_argument('--wandb_project', default='genotype_clean_pretraining', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
-    parser.add_argument('--batch_size', default=8196//16, type=int)
+    parser.add_argument('--batch_size', default=8196//32, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--n_train', type=int, default=10000)
     parser.add_argument('--no_augmentations', action='store_true')
@@ -186,9 +216,9 @@ def main():
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
     # fc args
-    parser.add_argument('--d_model', default=8196//16, type=int)
+    parser.add_argument('--d_model', default=8196//32, type=int)
     parser.add_argument('--num_hidden_layers', default=0, type=int)
-    parser.add_argument('--d_hidden', type=int, default=8196//16)
+    parser.add_argument('--d_hidden', type=int, default=8196//32)
     parser.add_argument('--embedding_size', type=int, default=20)
     # trainer args
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
@@ -269,17 +299,21 @@ def main():
     # training
     # ------------
     checkpoint_callback = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
-                                          filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lasso_val_loss}-train',
+                                          filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lassolars_val_loss:.2f}-train',
                                           save_top_k=args.checkpoint_save_top_k,
                                           monitor=args.monitor)
     checkpoint_callback2 = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
-                                           filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lasso_val_loss}-ls',
+                                           filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lassolars_val_loss:.2f}-ls',
                                            save_top_k=args.checkpoint_save_top_k,
                                            monitor="ls_val_loss")
     checkpoint_callback3 = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
-                                           filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lasso_val_loss}-lasso',
+                                           filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lassolars_val_loss:.2f}-lassolars',
                                            save_top_k=args.checkpoint_save_top_k,
-                                           monitor='lasso_val_loss')
+                                           monitor='lassolars_val_loss')
+    #checkpoint_callback4 = ModelCheckpoint(dirpath=args.checkpoint_dir+'/%s'%wandb_logger.experiment.name, 
+    #                                       filename='{epoch}-{mean_train_loss:.2f}-{ls_val_loss:.2f}-{lassolars_val_loss:.2f}-{lasso_val_loss:.2f}-lasso',
+    #                                       save_top_k=args.checkpoint_save_top_k,
+    #                                       monitor='lasso_val_loss')
     es_callback = EarlyStopping(monitor=args.monitor, 
                                 mode=args.early_stopping_mode, 
                                 patience=args.early_stopping_patience)
@@ -288,6 +322,7 @@ def main():
                                             callbacks=[checkpoint_callback,
                                                        checkpoint_callback2,
                                                        checkpoint_callback3,
+                                                       #checkpoint_callback4,
                                                        es_callback, lr_monitor],
                                             log_every_n_steps=args.my_log_every_n_steps,
                                             accelerator=args.my_accelerator,
@@ -320,7 +355,8 @@ def main():
     #store config and model
     checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/mean_train_loss_checkpoint_callback.yaml')
     checkpoint_callback2.to_yaml(checkpoint_callback.dirpath+'/ls_val_loss_checkpoint_callback.yaml')
-    checkpoint_callback3.to_yaml(checkpoint_callback.dirpath+'/lasso_val_loss_checkpoint_callback.yaml')
+    checkpoint_callback3.to_yaml(checkpoint_callback.dirpath+'/lassolars_val_loss_checkpoint_callback.yaml')
+    #checkpoint_callback4.to_yaml(checkpoint_callback.dirpath+'/lasso_val_loss_checkpoint_callback.yaml')
     checkpoint_callback3.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
     
     with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
