@@ -137,33 +137,6 @@ class CompressiveSensingPretraining(pl.LightningModule):
         return loss
     
     
-    def validation_epoch_end_lasso(self, outputs):
-        X = []
-        Y = []
-        for batch in outputs:
-            x, y = batch
-            X += [x.detach().cpu().numpy()]
-            Y += [y.detach().cpu().numpy()]
-        X = np.concatenate(X, axis=0)
-        Y = np.concatenate(Y, axis=0)
-        Y = Y[:, 0]        
-        n_train = int(0.8 * len(X))
-        X_train = X[:n_train]
-        Y_train = Y[:n_train]
-        X_test = X[n_train:]
-        Y_test = Y[n_train:]
-        reg = LassoCV(cv=5, eps=1e-3, max_iter=10000)
-        #reg = LassoLarsCV(cv=5)
-        reg.fit(X_train, Y_train)
-        Y_pred = reg.predict(X_test)
-        r2 = r2_score(Y_test, Y_pred)
-        loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
-        self.log('lasso downstream R2', r2)
-        self.log('lasso_val_loss', loss)
-        self.log('lasso alpha', reg.alpha_)
-        print('Lasso: downstream R2 %2.4f loss %2.4f'%(r2, loss))
-        return loss
-    
     def validation_epoch_end_least_squares(self, outputs):
         X = []
         Y = []
@@ -174,11 +147,25 @@ class CompressiveSensingPretraining(pl.LightningModule):
         X = np.concatenate(X, axis=0)
         Y = np.concatenate(Y, axis=0)
         Y = Y[:, 0]        
-        n_train = int(0.8 * len(X))
-        X_train = X[:n_train]
-        Y_train = Y[:n_train]
-        X_test = X[n_train:]
-        Y_test = Y[n_train:]
+        if self.downstream_validation_loader is None:
+            n_train = int(0.8 * len(X))
+            X_train = X[:n_train]
+            Y_train = Y[:n_train]
+            X_test = X[n_train:]
+            Y_test = Y[n_train:]
+        else:
+            X_train = X
+            Y_train = Y
+            X_test = []
+            Y_test = []
+            for batch in self.downstream_validation_loader:
+                x, y = batch
+                pred = self.forward(x.to(outputs[0][0].device))
+                X_test = [pred.detach().cpu().numpy()]
+                Y_test = [y.detach().cpu().numpy()]
+            X_test = np.concatenate(X_test, axis=0)
+            Y_test = np.concatenate(Y_test, axis=0)
+            Y_test = Y_test[:, 0]
         w_opt = np.linalg.solve(np.dot(X_train.T, X_train), np.dot(X_train.T, Y_train))       
         Y_pred = X_test.dot(w_opt)
         #Y_test_mean = Y_test.mean()
