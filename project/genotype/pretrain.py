@@ -206,7 +206,7 @@ def main():
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
     parser.add_argument('--batch_size', default=8196//32, type=int)
-    parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--num_workers', default=0, type=int)
     parser.add_argument('--n_train', type=int, default=10000)
     parser.add_argument('--no_augmentations', action='store_true')
     parser.add_argument('--only_neighbors', action='store_true')
