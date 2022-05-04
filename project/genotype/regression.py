@@ -143,7 +143,7 @@ def main():
     # datamodule args
     parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv", type=str)
     parser.add_argument('--path', default=None)
-    parser.add_argument('--batch_size', default=512, type=int)
+    parser.add_argument('--batch_size', default=8196//32, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     # lightingmodule args
     parser.add_argument('--lr', default=1e-4, type=float)
@@ -153,8 +153,8 @@ def main():
     parser.add_argument('--l1_coef', default=1., type=float)
     parser.add_argument('--freeze', action='store_true')
     # fc args
-    parser.add_argument('--d_model', default=256, type=int)
-    parser.add_argument('--d_hidden', type=int, default=4000)
+    parser.add_argument('--d_model', default=8196//32, type=int)
+    parser.add_argument('--d_hidden', type=int, default=8196//32)
     parser.add_argument('--embedding_size', type=int, default=20)
     parser.add_argument('--num_hidden_layers', default=0, type=int)
     # trainer args
