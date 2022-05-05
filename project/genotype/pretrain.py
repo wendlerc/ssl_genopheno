@@ -42,6 +42,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
                  factor = 0.5,
                  monitor = 'mean_train_loss',
                  use_bn = False,
+                 l2_coef = 0.0001,
                  downstream_validation_loader = None):
         super().__init__()
         self.encoder = encoder       
@@ -53,6 +54,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
         self.loss = BarlowTwinsLoss()
         self.monitor = monitor
         self.use_bn = use_bn
+        self.l2_coef = l2_coef
         self.downstream_validation_loader = downstream_validation_loader
 
         
@@ -166,7 +168,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
             X_test = np.concatenate(X_test, axis=0)
             Y_test = np.concatenate(Y_test, axis=0)
             Y_test = Y_test[:, 0]
-        w_opt = np.linalg.solve(np.dot(X_train.T, X_train), np.dot(X_train.T, Y_train))       
+        w_opt = np.linalg.solve(np.dot(X_train.T, X_train) + self.l2_coef*np.eye(X_train.shape[1]), np.dot(X_train.T, Y_train))       
         Y_pred = X_test.dot(w_opt)
         #Y_test_mean = Y_test.mean()
         #r2 = 1 - np.sum((Y_pred - Y_test)**2)/np.sum((Y_test - Y_test_mean)**2)
@@ -205,7 +207,7 @@ def main():
     parser.add_argument('--wandb_project', default='genotype_pretraining', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     # datamodule args
-    parser.add_argument('--batch_size', default=8196//32, type=int)
+    parser.add_argument('--batch_size', default=8196//2, type=int)
     parser.add_argument('--num_workers', default=0, type=int)
     parser.add_argument('--n_train', type=int, default=10000)
     parser.add_argument('--no_augmentations', action='store_true')
@@ -219,13 +221,14 @@ def main():
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
+    parser.add_argument('--l2_coef', default=0.0001, type=float)
     # fc args
-    parser.add_argument('--d_model', default=8196//32, type=int)
-    parser.add_argument('--num_hidden_layers', default=0, type=int)
-    parser.add_argument('--d_hidden', type=int, default=8196//32)
+    parser.add_argument('--d_model', default=8196//2, type=int)
+    parser.add_argument('--num_hidden_layers', default=2, type=int)
+    parser.add_argument('--d_hidden', type=int, default=8196//2)
     parser.add_argument('--embedding_size', type=int, default=20)
     # trainer args
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
+    parser.add_argument('--checkpoint_dir', type=str, default='/cluster/scratch/wendlerc/checkpoints')
     #parser.add_argument('--checkpoint_monitor', type=str, default='val_loss')
     parser.add_argument('--checkpoint_save_top_k', type=int, default=2)
     #parser.add_argument('--early_stopping_monitor', type=str, default='val_loss')
@@ -293,6 +296,7 @@ def main():
                                factor=args.factor,
                                monitor=args.monitor,
                                use_bn = False,
+                               l2_coef = args.l2_coef,
                                downstream_validation_loader=datamodule.val_dataloader())
 
     # ------------
