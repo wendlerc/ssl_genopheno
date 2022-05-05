@@ -81,7 +81,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
         z1 = outputs[-1]['z1']
         z2 = outputs[-1]['z2']
         c = z1.T @ z2 / z1.shape[0] # DxD
-        wandb.log({'crosscorrelation': wandb.Image(c)})
+        #wandb.log({'crosscorrelation': wandb.Image(c)})
         self.log('cc_off_diag_min', off_diagonal(c**2).min())
         self.log('cc_off_diag_max', off_diagonal(c**2).max())
         self.log('cc_off_diag_median', off_diagonal(c**2).median())

@@ -136,27 +136,27 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     # wandb args
     parser.add_argument('--wandb_name', default=None, type=str)
-    parser.add_argument('--wandb_project', default='genotype_clean_supervised', type=str)
+    parser.add_argument('--wandb_project', default='genotype_supervised', type=str)
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     parser.add_argument('--wandb_pretrained', default=None, type=str)
     parser.add_argument('--checkpoint_yaml', default='checkpoint_callback.yaml')
     # datamodule args
     parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv", type=str)
     parser.add_argument('--path', default=None)
-    parser.add_argument('--batch_size', default=8196//32, type=int)
+    parser.add_argument('--batch_size', default=8196//2, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     # lightingmodule args
-    parser.add_argument('--lr', default=1e-4, type=float)
+    parser.add_argument('--lr', default=1e-5, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
     parser.add_argument('--l1_coef', default=1., type=float)
     parser.add_argument('--freeze', action='store_true')
     # fc args
-    parser.add_argument('--d_model', default=8196//32, type=int)
-    parser.add_argument('--d_hidden', type=int, default=8196//32)
+    parser.add_argument('--d_model', default=8196//2, type=int)
+    parser.add_argument('--num_hidden_layers', default=2, type=int)
+    parser.add_argument('--d_hidden', type=int, default=8196//2)
     parser.add_argument('--embedding_size', type=int, default=20)
-    parser.add_argument('--num_hidden_layers', default=0, type=int)
     # trainer args
     parser.add_argument('--monitor', type=str, default='mean_valid_loss')
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
@@ -166,6 +166,7 @@ def main():
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
     parser.add_argument('--my_max_epochs', type=int, default=1000)
+    parser.add_argument('--upload', action='store_true')
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     
@@ -272,16 +273,16 @@ def main():
     # ------------
     result = trainer.test(datamodule=datamodule, ckpt_path='best')
     print(result)
-   
-    print("uploading model...")
-    #store config and model
-    checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
-    with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
-        yaml.dump(run.config.as_dict(), f, default_flow_style=False)
-    
-    trained_model_artifact = wandb.Artifact(run.name, type="model", description="trained selfattn model")
-    trained_model_artifact.add_dir(checkpoint_callback.dirpath)
-    run.log_artifact(trained_model_artifact)
+    if args.upload:
+        print("uploading model...")
+        #store config and model
+        checkpoint_callback.to_yaml(checkpoint_callback.dirpath+'/checkpoint_callback.yaml')
+        with open(checkpoint_callback.dirpath+'/config.yaml', 'w') as f:
+            yaml.dump(run.config.as_dict(), f, default_flow_style=False)
+        
+        trained_model_artifact = wandb.Artifact(run.name, type="model", description="trained selfattn model")
+        trained_model_artifact.add_dir(checkpoint_callback.dirpath)
+        run.log_artifact(trained_model_artifact)
 
 
 if __name__ == '__main__':
