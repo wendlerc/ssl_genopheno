@@ -237,7 +237,7 @@ def main():
     parser.add_argument('--monitor', type=str, default='mean_train_loss')
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
-    parser.add_argument('--my_max_epochs', type=int, default=500)
+    parser.add_argument('--my_max_epochs', type=int, default=100)
     parser.add_argument('--n_augs', type=int, default=2)
     
     parser = pl.Trainer.add_argparse_args(parser)
