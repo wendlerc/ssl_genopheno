@@ -210,7 +210,7 @@ def main():
                  dir=".",
                  settings=wandb.Settings(start_method='fork'))
         model_at = run.use_artifact("%s:latest"%args.wandb_pretrained)
-        model_dir = model_at.download(root='./artifacts/%s/'%args.wandb_pretrained)
+        model_dir = model_at.download(root='/cluster/scratch/wendlerc/artifacts/%s/'%args.wandb_pretrained)
         with open(model_dir+"/config.yaml") as file:
             pconfig = yaml.load(file, Loader=yaml.FullLoader)
         with open(model_dir+"/%s"%args.checkpoint_yaml) as file:
