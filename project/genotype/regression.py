@@ -154,6 +154,7 @@ def main():
     parser.add_argument('--factor', default=0.5, type=float)
     parser.add_argument('--l1_coef', default=0., type=float)
     parser.add_argument('--freeze', action='store_true')
+    parser.add_argument('--group', default='default', type=str)
     # fc args
     parser.add_argument('--d_model', default=8196//2, type=int)
     parser.add_argument('--num_hidden_layers', default=2, type=int)
