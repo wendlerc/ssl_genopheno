@@ -32,6 +32,7 @@ import sys
 from shutil import copyfile
 import os
 import pandas as pd
+from copy import deepcopy
 
 
 class CompressiveSensingPretraining(pl.LightningModule):
@@ -85,7 +86,6 @@ class CompressiveSensingPretraining(pl.LightningModule):
         self.log('cc_off_diag_min', off_diagonal(c**2).min())
         self.log('cc_off_diag_max', off_diagonal(c**2).max())
         self.log('cc_off_diag_median', off_diagonal(c**2).median())
-        print(c.shape)
         mean_loss = torch.mean(torch.stack([o['loss'] for o in outputs]))
         if hasattr(self.encoder, 'cls_token'):
             self.log('cls_token_norm', torch.sum(self.encoder.cls_token**2).item())
@@ -114,6 +114,7 @@ class CompressiveSensingPretraining(pl.LightningModule):
             X_test = X[n_train:]
             Y_test = Y[n_train:]
         else:
+            print('constructing validation features..')
             X_train = X
             Y_train = Y
             X_test = []
@@ -121,13 +122,13 @@ class CompressiveSensingPretraining(pl.LightningModule):
             for batch in self.downstream_validation_loader:
                 x, y = batch
                 pred = self.forward(x.to(outputs[0][0].device))
-                X_test = [pred.detach().cpu().numpy()]
-                Y_test = [y.detach().cpu().numpy()]
+                X_test += [pred.detach().cpu().numpy()]
+                Y_test += [y.detach().cpu().numpy()]
             X_test = np.concatenate(X_test, axis=0)
             Y_test = np.concatenate(Y_test, axis=0)
             Y_test = Y_test[:, 0]
         #reg = LassoCV(cv=5, eps=1e-3, max_iter=10000)
-        reg = LassoLarsCV(cv=5)
+        reg = LassoLarsCV(cv=5, normalize=False)
         reg.fit(X_train, Y_train)
         Y_pred = reg.predict(X_test)
         r2 = r2_score(Y_test, Y_pred)
@@ -163,15 +164,15 @@ class CompressiveSensingPretraining(pl.LightningModule):
             for batch in self.downstream_validation_loader:
                 x, y = batch
                 pred = self.forward(x.to(outputs[0][0].device))
-                X_test = [pred.detach().cpu().numpy()]
-                Y_test = [y.detach().cpu().numpy()]
+                X_test += [pred.detach().cpu().numpy()]
+                Y_test += [y.detach().cpu().numpy()]
             X_test = np.concatenate(X_test, axis=0)
             Y_test = np.concatenate(Y_test, axis=0)
             Y_test = Y_test[:, 0]
         w_opt = np.linalg.solve(np.dot(X_train.T, X_train) + self.l2_coef*np.eye(X_train.shape[1]), np.dot(X_train.T, Y_train))       
         Y_pred = X_test.dot(w_opt)
         #Y_test_mean = Y_test.mean()
-        #r2 = 1 - np.sum((Y_pred - Y_test)**2)/np.sum((Y_test - Y_test_mean)**2)
+        #r2 = 1 - np.sum((Y_pred - Y_test)**2)/np.sum((Y_test - Y_test_mean)**2)        
         r2 = r2_score(Y_test, Y_pred)
         loss = np.linalg.norm(Y_pred - Y_test)/np.linalg.norm(Y_test)
         self.log('ls downstream R2', r2)
@@ -283,8 +284,8 @@ def main():
     # ------------
     # model
     # ------------
-    datamodule.prepare_data()
-    datamodule.setup()
+    ddm.prepare_data()
+    ddm.setup()
     n_feats = datamodule.get_n_feats()
     
     encoder = FCEncoder(16, args.embedding_size, args.d_model, n_feats, d_hidden=args.d_hidden, num_hidden_layers=args.num_hidden_layers)
@@ -297,7 +298,7 @@ def main():
                                monitor=args.monitor,
                                use_bn = False,
                                l2_coef = args.l2_coef,
-                               downstream_validation_loader=datamodule.val_dataloader())
+                               downstream_validation_loader=ddm.val_dataloader())
 
     # ------------
     # training

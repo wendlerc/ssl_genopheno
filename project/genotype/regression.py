@@ -62,6 +62,8 @@ class GenotypeRegression(pl.LightningModule):
         self.monitor = monitor
         
     def forward(self, x):
+        if self.freeze:
+            self.encoder.eval()
         return self.head(self.encoder(x))
     
     def configure_optimizers(self):
@@ -143,14 +145,14 @@ def main():
     # datamodule args
     parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv", type=str)
     parser.add_argument('--path', default=None)
-    parser.add_argument('--batch_size', default=8196//2, type=int)
-    parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--batch_size', default=256, type=int)
+    parser.add_argument('--num_workers', default=0, type=int)
     # lightingmodule args
-    parser.add_argument('--lr', default=1e-5, type=float)
+    parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
     parser.add_argument('--beta2', default=0.95, type=float)
     parser.add_argument('--factor', default=0.5, type=float)
-    parser.add_argument('--l1_coef', default=1., type=float)
+    parser.add_argument('--l1_coef', default=0., type=float)
     parser.add_argument('--freeze', action='store_true')
     # fc args
     parser.add_argument('--d_model', default=8196//2, type=int)
@@ -162,10 +164,10 @@ def main():
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
     parser.add_argument('--checkpoint_save_top_k', type=int, default=2)
     parser.add_argument('--early_stopping_mode', type=str, default='min')
-    parser.add_argument('--early_stopping_patience', type=int, default=25)
+    parser.add_argument('--early_stopping_patience', type=int, default=50)
     parser.add_argument('--my_log_every_n_steps', type=int, default=1)
     parser.add_argument('--my_accelerator', type=str, default='gpu')
-    parser.add_argument('--my_max_epochs', type=int, default=1000)
+    parser.add_argument('--my_max_epochs', type=int, default=200)
     parser.add_argument('--upload', action='store_true')
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
@@ -202,7 +204,7 @@ def main():
     else:
         
         run = wandb.init(mode="online",
-                 project='genotype_clean_pretraining', 
+                 project='genotype_pretraining', 
                  entity='chrisxx', 
                  job_type="inference",
                  dir=".",
@@ -232,6 +234,7 @@ def main():
                                    monitor=args.monitor,
                                    l1_coef = args.l1_coef,
                                    freeze= args.freeze)
+        print(vars(pmodel))
     
     # ------------
     # wandb 
