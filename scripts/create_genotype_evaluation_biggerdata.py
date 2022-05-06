@@ -7,7 +7,7 @@ Created on Thu May  5 20:48:38 2022
 import numpy as np
 
 barlow_name = "ridgeslowverybig_with_augmentations"
-project = "genotype_supervised_l1eq0"
+project = "genotype_supervised_biggerdata_l1eq0"
 pp = "datasets/genotype/cas9/cas9_pairs_%s.csv"
 
 pretrained = ["ridgeslowverybig_with_augmentations",
