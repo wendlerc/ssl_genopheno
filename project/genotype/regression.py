@@ -142,11 +142,14 @@ def main():
     parser.add_argument('--wandb_entity', default='chrisxx', type=str)
     parser.add_argument('--wandb_pretrained', default=None, type=str)
     parser.add_argument('--checkpoint_yaml', default='checkpoint_callback.yaml')
+    parser.add_argument('--artifact_dir', default="/cluster/scratch/wendlerc/artifacts", type=str)
     # datamodule args
     parser.add_argument('--path_pattern', default="datasets/genotype/cas9/cas9_pairs_10nm_%s.csv", type=str)
     parser.add_argument('--path', default=None)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--num_workers', default=0, type=int)
+    parser.add_argument('--train_fraction', type=float, default=1.)
+    parser.add_argument('--use_subset', action='store_true')
     # lightingmodule args
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
@@ -185,7 +188,9 @@ def main():
     datamodule = GenotypeDataModule(batch_size=args.batch_size, 
                                          num_workers=args.num_workers,
                                          seed=args.seed,
-                                         paths=paths)
+                                         paths=paths,
+                                         frac_train=args.train_fraction,
+                                         select_subset=args.use_subset)
 
     # ------------
     # model
@@ -211,7 +216,7 @@ def main():
                  dir=".",
                  settings=wandb.Settings(start_method='fork'))
         model_at = run.use_artifact("%s:latest"%args.wandb_pretrained)
-        model_dir = model_at.download(root='/cluster/scratch/wendlerc/artifacts/%s/'%args.wandb_pretrained)
+        model_dir = model_at.download(root='%s/%s/'%(args.artifact_dir, args.wandb_pretrained))
         with open(model_dir+"/config.yaml") as file:
             pconfig = yaml.load(file, Loader=yaml.FullLoader)
         with open(model_dir+"/%s"%args.checkpoint_yaml) as file:
@@ -227,7 +232,7 @@ def main():
                 mkey = key
         print('using %s'%mkey)
         encoder = FCEncoder(16, pconfig['embedding_size'], pconfig['d_model'], 23, pconfig['d_hidden'], pconfig['num_hidden_layers'])
-        pmodel = CompressiveSensingPretraining.load_from_checkpoint('/cluster/scratch/wendlerc/artifacts/%s/%s'%(args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
+        pmodel = CompressiveSensingPretraining.load_from_checkpoint('%s/%s/%s'%(args.artifact_dir, args.wandb_pretrained, mkey.split('/')[-1]), encoder=encoder)
         model = GenotypeRegression(pmodel, lr=args.lr, 
                                    beta1=args.beta1, 
                                    beta2=args.beta2,
