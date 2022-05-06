@@ -28,10 +28,12 @@ class GenotypeDataModule(pl.LightningDataModule):
                  paths=['datasets/genotype/cas9/cas9_train.csv',
                         'datasets/genotype/cas9/cas9_valid.csv',
                         'datasets/genotype/cas9/cas9_test.csv'],
+                 select_subset=False,
                  *args,
                  **kwargs):
         """
         Note that 0 is used as padding token, 1,...,99 are the tokens for the flags
+        
         
         paths: list of paths, if it only has one element, random splits are performed, else
         the provided files are interpreted as train, valid, test
@@ -45,6 +47,7 @@ class GenotypeDataModule(pl.LightningDataModule):
         self.frac_train = frac_train
         self.frac_val = frac_val
         self.seed = seed
+        self.select_subset = select_subset
         self.save_hyperparameters()
         
     def prepare_data(self):
@@ -53,6 +56,10 @@ class GenotypeDataModule(pl.LightningDataModule):
             self.n_feats = self.X.shape[1]
         elif len(self.paths) == 3:
             self.X_train, self.y_train = self._csv_to_tensors(self.paths[0])
+            if self.select_subset:
+                n_train = int(len(self.X_train)*self.frac_train)
+                self.X_train = self.X_train[:n_train]
+                self.y_train = self.y_train[:n_train]
             self.X_valid, self.y_valid = self._csv_to_tensors(self.paths[1])
             self.X_test, self.y_test = self._csv_to_tensors(self.paths[2]) 
             self.n_feats = self.X_train.shape[1]
