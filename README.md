@@ -31,3 +31,6 @@ or
 python project/cfo/pretrain.py
 ```
 
+Useful command for starting crashed jobs on the cluster:
+
+cat scripts/genotype_evaluation_nol1.sh | grep frozen.*without.*51 | sh
