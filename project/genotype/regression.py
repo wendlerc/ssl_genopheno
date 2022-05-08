@@ -150,6 +150,7 @@ def main():
     parser.add_argument('--num_workers', default=0, type=int)
     parser.add_argument('--train_fraction', type=float, default=1.)
     parser.add_argument('--use_subset', action='store_true')
+    parser.add_argument('--random', action='store_true')
     # lightingmodule args
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
@@ -177,6 +178,7 @@ def main():
     args = parser.parse_args()
     
     pl.seed_everything(args.seed)    
+    np.random.seed(args.seed)
     # ------------
     # data
     # ------------
@@ -190,7 +192,8 @@ def main():
                                          seed=args.seed,
                                          paths=paths,
                                          frac_train=args.train_fraction,
-                                         select_subset=args.use_subset)
+                                         select_subset=args.use_subset,
+                                         random=args.random)
 
     # ------------
     # model
