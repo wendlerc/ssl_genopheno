@@ -29,6 +29,7 @@ class GenotypeDataModule(pl.LightningDataModule):
                         'datasets/genotype/cas9/cas9_valid.csv',
                         'datasets/genotype/cas9/cas9_test.csv'],
                  select_subset=False,
+                 random=False,
                  *args,
                  **kwargs):
         """
@@ -48,6 +49,7 @@ class GenotypeDataModule(pl.LightningDataModule):
         self.frac_val = frac_val
         self.seed = seed
         self.select_subset = select_subset
+        self.random = random
         self.save_hyperparameters()
         
     def prepare_data(self):
@@ -58,8 +60,13 @@ class GenotypeDataModule(pl.LightningDataModule):
             self.X_train, self.y_train = self._csv_to_tensors(self.paths[0])
             if self.select_subset:
                 n_train = int(len(self.X_train)*self.frac_train)
-                self.X_train = self.X_train[:n_train]
-                self.y_train = self.y_train[:n_train]
+                if self.random:
+                    perm = np.random.permutation(len(self.X_train))
+                    self.X_train = self.X_train[perm[:n_train]]
+                    self.y_train = self.y_train[perm[:n_train]]
+                else:
+                    self.X_train = self.X_train[:n_train]
+                    self.y_train = self.y_train[:n_train]
             self.X_valid, self.y_valid = self._csv_to_tensors(self.paths[1])
             self.X_test, self.y_test = self._csv_to_tensors(self.paths[2]) 
             self.n_feats = self.X_train.shape[1]
@@ -103,7 +110,7 @@ class GenotypeDataModule(pl.LightningDataModule):
     
         
 class AugmentedGenotypeDataset(Dataset):
-    def __init__(self, gene_string, n_feats, length=10000, no_augmentations=False, hard=False, easy=False, genotype_list=None, pairs=True, n_augs=2):
+    def __init__(self, gene_string, n_feats, length=10000, no_augmentations=False, hard=False, easy=False, genotype_list=None, pairs=True, n_augs=2, mix=False):
         self.n_feats = n_feats
         self.length=length
         self.no_augmentations = no_augmentations
@@ -114,34 +121,55 @@ class AugmentedGenotypeDataset(Dataset):
         self.impossible_mutations = np.asarray([letter2int[base] for base in gene_string])
         self.pairs = pairs
         self.n_augs = n_augs
+        self.mix = mix
         #print(self.impossible_mutations)
         #print(self.impossible_mutations.shape)
         if genotype_list is not None:
             self.length = len(genotype_list)
-        
+    
+    
+    def augment_(self, d0, idcs, n_augs):
+        d1 = d0.copy()
+        idcs = np.where((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15))[0]
+        for aug in range(min(len(idcs), n_augs)):
+            idx1 = idcs[np.random.randint(len(idcs))]
+            new_base1 = int2letter[np.random.randint(1, 5)]
+            while pair2int[(self.gene_string[idx1], new_base1)] in [pair2int[(self.gene_string[idx1], self.gene_string[idx1])], d0[idx1]]:
+                new_base1 = int2letter[np.random.randint(1, 5)]
+            d1[idx1] = pair2int[(self.gene_string[idx1], new_base1)]
+        return d1
+    
+    
     def __getitem__(self, idx):
         if self.genotype_list is None:
-            d1 = np.random.randint(0, 5, self.n_feats)
+            d0 = np.random.randint(0, 5, self.n_feats)
         else:
-            d1 = self.genotype_list[idx]
+            d0 = self.genotype_list[idx]
 
-        d2 = d1.copy()
         if self.pairs:
-            d0 = d1.copy()
-            idcs = np.where((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15))[0]
-            for aug in range(min(len(idcs), self.n_augs)):
-                idx1 = idcs[np.random.randint(len(idcs))]
-                idx2 = idcs[np.random.randint(len(idcs))]
-                new_base1 = int2letter[np.random.randint(1, 5)]
-                new_base2 = int2letter[np.random.randint(1, 5)]
-                while pair2int[(self.gene_string[idx1], new_base1)] in [pair2int[(self.gene_string[idx1], self.gene_string[idx1])], d0[idx1]]:
+            if self.mix:
+                idcs = np.where((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15))[0]
+                n_augs = np.random.randint(0, min(len(idcs)+1, self.n_augs+1), 2)
+                d1 = self.augment_(d0, idcs, n_augs[0])
+                d2 = self.augment_(d0, idcs, n_augs[1])
+            else: # legacy  
+                d1 = d0.copy()
+                d2 = d0.copy()
+                idcs = np.where((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15))[0]
+                for aug in range(min(len(idcs), self.n_augs)):
+                    idx1 = idcs[np.random.randint(len(idcs))]
+                    idx2 = idcs[np.random.randint(len(idcs))]
                     new_base1 = int2letter[np.random.randint(1, 5)]
-                while pair2int[(self.gene_string[idx2], new_base2)] in [pair2int[(self.gene_string[idx2], self.gene_string[idx2])], d0[idx2]]:
                     new_base2 = int2letter[np.random.randint(1, 5)]
-                d1[idx1] = pair2int[(self.gene_string[idx1], new_base1)]
-                d2[idx2] = pair2int[(self.gene_string[idx2], new_base2)]
+                    while pair2int[(self.gene_string[idx1], new_base1)] in [pair2int[(self.gene_string[idx1], self.gene_string[idx1])], d0[idx1]]:
+                        new_base1 = int2letter[np.random.randint(1, 5)]
+                    while pair2int[(self.gene_string[idx2], new_base2)] in [pair2int[(self.gene_string[idx2], self.gene_string[idx2])], d0[idx2]]:
+                        new_base2 = int2letter[np.random.randint(1, 5)]
+                    d1[idx1] = pair2int[(self.gene_string[idx1], new_base1)]
+                    d2[idx2] = pair2int[(self.gene_string[idx2], new_base2)]
                 
         else:
+            d1 = d0.copy()
             if not self.no_augmentations:
                 new = np.random.randint(1, 5, self.n_feats)
                 if self.easy:
@@ -182,6 +210,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
                  hard=False,
                  genotype_list = None,
                  n_augs = 2,
+                 mix = False,
                  *args,
                  **kwargs):
         """
@@ -199,6 +228,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
         self.genotype_list = genotype_list
         self.gene_string = gene_string
         self.n_augs = n_augs
+        self.mix = mix
         self.save_hyperparameters()
         
         
@@ -211,7 +241,7 @@ class AugmentedGenotypePretrainingDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         #print('creating new dataset...')
         dataset = AugmentedGenotypeDataset(self.gene_string, self.n_feats, self.n_train, no_augmentations=self.no_augmentations, hard=self.hard, 
-                                           genotype_list = self.genotype_list, n_augs=self.n_augs)
+                                           genotype_list = self.genotype_list, n_augs=self.n_augs, mix=self.mix)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
     
     def val_dataloader(self):

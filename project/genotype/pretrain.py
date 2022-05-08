@@ -217,6 +217,7 @@ def main():
     parser.add_argument('--path_pretrain', type=str, default="datasets/genotype/cas9/cas9_pairs_all.csv")
     parser.add_argument('--gene_string', type=str, default="GACGCATAAAGATGAGACGCTGG")
     parser.add_argument('--hard', action='store_true')
+    parser.add_argument('--mix', action='store_true')
     # lightingmodule args
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--beta1', default=0.9, type=float)
@@ -278,7 +279,8 @@ def main():
                                          only_neighbors=args.only_neighbors,
                                          hard = args.hard,
                                          genotype_list = genotype_list,
-                                         n_augs = args.n_augs)
+                                         n_augs = args.n_augs,
+                                         mix = args.mix)
 
 
     # ------------
