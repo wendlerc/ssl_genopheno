@@ -7,7 +7,7 @@ Created on Thu May  5 20:48:38 2022
 import numpy as np
 
 barlow_name = "ridgeslowverybig_with_augmentations"
-project = "genotype_supervised_random_smallerdata_l1eq0"
+project = "genotype_supervised_random_smallerdata_l1geq0"
 
 pretrained = ["ridgeslowverybig_with_3augmentations"]
               #"ridgeslowverybig_with_augmentations",
