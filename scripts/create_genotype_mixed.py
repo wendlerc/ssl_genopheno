@@ -9,7 +9,7 @@ import numpy as np
 import argparse
 
 
-parser = ArgumentParser()
+parser = argparse.ArgumentParser()
 parser.add_argument('--project', default="genotype_supervised_smallerdata_l1eq0", type=str)
 parser.add_argument('--l1_coef', default=0, type=float)
 parser.add_argument('--share', default="ls_krausea", type=str)
