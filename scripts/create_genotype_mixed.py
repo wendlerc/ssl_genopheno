@@ -12,6 +12,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--project', default="genotype_supervised_smallerdata_l1eq0", type=str)
 parser.add_argument('--l1_coef', default=0, type=float)
+parser.add_argument('--l1_coef_fixed', default=0, type=float)
 parser.add_argument('--share', default="ls_krausea", type=str)
 
 args = parser.parse_args()
@@ -36,7 +37,7 @@ for seed in (42 + np.arange(10)):
             
             print("bsub -o /cluster/scratch/wendlerc/lsfcsss/ -G %s"%args.share, end="")
             print(" -n 12 -R \"rusage[mem=1000, ngpus_excl_p=1]\" -R \"select[gpu_mtotal0>=10000]\"", end="")
-            print(" -W 4:00 python project/genotype/regression.py --l1_coef %2.4f --freeze"%args.l1_coef, end="") 
+            print(" -W 4:00 python project/genotype/regression.py --l1_coef %2.4f --freeze"%args.l1_coef_fixed, end="") 
             print(" --wandb_pretrained %s_%d"%(pname, seed), end="")
             print(" --wandb_project %s"%project, end="")
             print(" --use_subset --train_fraction %2.4f"%frac, end="")
