@@ -1,0 +1,84 @@
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+1, 1.000+-0.000, 0.528+-0.037, 0.520+-0.040, 0.727,  0.282 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+1, 0.920+-0.089, 0.269+-0.020, 0.255+-0.018, 0.368,  0.195 
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+3, 1.000+-0.000, 0.644+-0.020, 0.634+-0.022, 0.730,  0.526 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+3, 1.000+-0.000, 0.370+-0.017, 0.368+-0.016, 0.443,  0.291 
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+7, 0.989+-0.014, 0.696+-0.010, 0.687+-0.010, 0.738,  0.636 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+7, 0.997+-0.004, 0.449+-0.011, 0.439+-0.010, 0.486,  0.394 
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+10, 0.982+-0.017, 0.726+-0.013, 0.719+-0.012, 0.750,  0.611 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+10, 0.995+-0.005, 0.491+-0.012, 0.479+-0.012, 0.526,  0.412 
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+13, 0.952+-0.029, 0.725+-0.010, 0.711+-0.009, 0.753,  0.667 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+13, 0.995+-0.006, 0.511+-0.010, 0.502+-0.011, 0.548,  0.448 
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+17, 0.923+-0.031, 0.740+-0.009, 0.731+-0.009, 0.767,  0.679 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+17, 0.994+-0.007, 0.534+-0.008, 0.517+-0.011, 0.563,  0.448 
+Frozen True , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+20, 0.950+-0.026, 0.745+-0.009, 0.737+-0.010, 0.777,  0.674 
+Frozen True , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+20, 0.987+-0.009, 0.551+-0.011, 0.544+-0.011, 0.608,  0.484 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+1, 1.000+-0.000, 0.489+-0.031, 0.491+-0.029, 0.650,  0.312 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+1, 1.000+-0.000, 0.362+-0.041, 0.363+-0.040, 0.601,  0.229 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+3, 1.000+-0.000, 0.680+-0.026, 0.679+-0.025, 0.759,  0.458 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+3, 1.000+-0.000, 0.607+-0.024, 0.601+-0.023, 0.693,  0.455 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+7, 1.000+-0.000, 0.744+-0.018, 0.740+-0.019, 0.809,  0.634 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+7, 1.000+-0.000, 0.712+-0.016, 0.714+-0.016, 0.772,  0.621 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+10, 0.999+-0.001, 0.756+-0.012, 0.762+-0.010, 0.816,  0.714 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+10, 0.999+-0.001, 0.741+-0.010, 0.743+-0.009, 0.790,  0.707 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+13, 0.998+-0.003, 0.784+-0.010, 0.781+-0.009, 0.818,  0.726 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+13, 1.000+-0.000, 0.766+-0.010, 0.768+-0.009, 0.808,  0.723 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+17, 0.997+-0.002, 0.794+-0.007, 0.792+-0.009, 0.833,  0.740 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+17, 0.999+-0.001, 0.791+-0.006, 0.789+-0.007, 0.814,  0.732 
+Frozen False , Embedding True
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+20, 0.995+-0.002, 0.804+-0.008, 0.807+-0.006, 0.834,  0.779 
+Frozen False , Embedding False
+Num per class, avg train acc, val acc, test acc, best test acc, worst test acc 
+20, 0.997+-0.002, 0.791+-0.007, 0.799+-0.007, 0.831,  0.753 
