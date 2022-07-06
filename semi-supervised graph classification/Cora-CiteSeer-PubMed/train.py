@@ -1,22 +1,30 @@
 import torch
-from loss import CompressiveSensingLoss
+from utils import augment
+from loss import CompressiveSensingLoss, barlow_twins_loss
 import sklearn.linear_model as lm
 from modules import SparseClassifier, GCN
+from xgboost import XGBClassifier
 import torch.nn as nn
 import copy
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def pretraining(model, PATH, epochs, data, optimizer, freeze, C, s_train, s_val, s_test, 
-                dataset=None, hidden_dim=None, emb_dim=None, train_lr=None, l1_coefs=None):
+def pretraining(model, PATH, epochs, data, optimizer, freeze, s_train, s_val, s_test, 
+                dataset=None, hidden_dim=None, emb_dim=None, train_lr=None, l1_coefs=None, augmentations=False, px=0.1, pe=0.5):
     criterion = CompressiveSensingLoss()
 
     early = 100
     best = 0
 
     for epoch in range(epochs):
-        features = model(data)
-        loss = criterion(features)    
+        if augmentations:
+            data1 = augment(data, px=px, pe=pe)
+            data2 = augment(data, px=px, pe=pe)
+            features1, features2 = model(data1), model(data2)
+            loss = barlow_twins_loss(features1, features2)
+        else:
+            features = model(data)
+            loss = criterion(features)    
         loss.backward()
         optimizer.step()
 
@@ -61,7 +69,7 @@ def training(model, epochs, data, C, criterion, optimizer, s_train, s_val):
         if val_loss < best:
             best = val_loss
             early = 20
-            torch.save(model, 'best_net.pl')
+            torch.save(model, 'best_net.pt')
         else:
             early -= 1
             if early == 0:
@@ -83,17 +91,27 @@ def evaluate(model, data, criterion, s_train, s_val, s_test, train_acc=None, val
             return (pred[data.val_mask] == s_val).sum() / int(data.val_mask.sum()) 
 
 
+def evaluate_graph_features(features, data, C, s_train, s_val, s_test, train_acc=None, val_acc=None, test_acc=None):
+    est = lm.LogisticRegression(penalty='l1', solver='liblinear', C=1/C) if C != 0 else lm.LogisticRegression(penalty='none', solver='lbfgs')
+    est.fit(features[data.train_mask].cpu().detach(), s_train.cpu().ravel())
+    train_acc.append( est.score(features[data.train_mask].cpu().detach(), s_train.cpu().ravel()) )
+    val_acc.append( est.score(features[data.val_mask].cpu().detach(), s_val.cpu().ravel()) )
+    test_acc.append( est.score(features[data.test_mask].cpu().detach(), s_test.cpu().ravel()) )
+    print('Number of nonzero coefs is {}'.format(features.shape[1]))
+
 
 def sklearn_evaluate(model, data, C, s_train, s_val, s_test, train_acc=None, val_acc=None, test_acc=None, validate=False):
+    model.eval()
     with torch.no_grad():
         features = model(data)
         est = lm.LogisticRegression(penalty='l1', solver='liblinear', C=1/C) if C != 0 else lm.LogisticRegression(penalty='none', solver='lbfgs')
         est.fit(features[data.train_mask].cpu().detach(), s_train.cpu().ravel())
+
         if(not validate):
             train_acc.append( est.score(features[data.train_mask].cpu().detach(), s_train.cpu().ravel()) )
             val_acc.append( est.score(features[data.val_mask].cpu().detach(), s_val.cpu().ravel()) )
             test_acc.append( est.score(features[data.test_mask].cpu().detach(), s_test.cpu().ravel()) )
-            # nonzero_vals[j, k, i] = (est.coef_ != 0).sum()
+            print('Number of nonzero coefs is {} and l1 reg coef is {}'.format((est.coef_ != 0).sum(), C))
         else: 
             return est.score(features[data.val_mask].cpu().detach(), s_val.cpu().ravel())
 
@@ -108,7 +126,7 @@ def validate_pretrain(gcn, data, dataset, emb_dim, train_lr, l1_coefs, s_train, 
     for k, C in enumerate(l1_coefs):
         training(model, 200, data, C, criterion, optimizer, s_train, s_val)
 
-        model = torch.load('best_net.pl')
+        model = torch.load('best_net.pt')
 
         val = evaluate(model, data, criterion, s_train, s_val, s_test, validate=True)
 

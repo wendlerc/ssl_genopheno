@@ -8,7 +8,6 @@ Created on Thu Mar 31 16:00:36 2022
 
 import torch
 import torch.nn as nn
-import numpy as np
 from torch.autograd import Variable
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -31,6 +30,8 @@ class CompressiveSensingLoss(nn.Module):
         on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
         off_diag = off_diagonal(c).pow_(2).sum()
         return on_diag +  self.lamda * off_diag 
+
+
 
 def power_iteration(batch, num_simulations = 1):
     # Ideally choose a random vector
@@ -72,3 +73,5 @@ def barlow_twins_loss(
         (1 - c.diagonal()).pow(2).sum()
         + _lambda * c[off_diagonal_mask].pow(2).sum()
     )
+
+    return loss
