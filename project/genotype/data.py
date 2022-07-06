@@ -16,7 +16,7 @@ import torch
 letter2int = {'A':1, 'C':2, 'G':3, 'T':4}
 int2letter = {1:'A', 2:'C', 3:'G', 4:'T'}
 pair2int = {('A', 'A'): 0, ('A', 'C'): 1, ('A', 'G'): 2, ('A', 'T'): 3, ('C', 'A'): 4, ('C', 'C'): 5, ('C', 'G'): 6, ('C', 'T'): 7, ('G', 'A'): 8, ('G', 'C'): 9, ('G', 'G'): 10, ('G', 'T'): 11, ('T', 'A'): 12, ('T', 'C'): 13, ('T', 'G'): 14, ('T', 'T'): 15}
-
+int2pair = {val:key for key, val in pair2int.items()}
 
 class GenotypeDataModule(pl.LightningDataModule):
     def __init__(self, 
@@ -137,7 +137,15 @@ class AugmentedGenotypeDataset(Dataset):
             while pair2int[(self.gene_string[idx1], new_base1)] in [pair2int[(self.gene_string[idx1], self.gene_string[idx1])], d0[idx1]]:
                 new_base1 = int2letter[np.random.randint(1, 5)]
             d1[idx1] = pair2int[(self.gene_string[idx1], new_base1)]
+        if self.hard:
+            idcs_nomutations = np.where(~((d0 != 0)*(d0 != 5)*(d0 != 10)*(d0 != 15)))[0]
+            if np.random.rand() > 0.9:
+                # -> figure out which mutations are plausible and do the right one: 
+                idx = np.random.choice(idcs_nomutations)
+                pair = int2pair[d1[idx]]
+                d1[idx] = pair2int[(pair[0], int2letter[np.random.randint(1, 5)])]
         return d1
+                
     
     
     def __getitem__(self, idx):
