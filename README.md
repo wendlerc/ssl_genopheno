@@ -19,7 +19,7 @@ In order to compute confidence intervals, we repeated experiment 10 times.
 First, install dependencies   
 ```bash
 # clone project   
-git clone git@gitlab.inf.ethz.ch:PRV-PUESCHEL/wendlerc/ssl_genopheno.git
+git clone git@github.com:wendlerc/ssl_genopheno.git
 
 # install project   
 cd csss
