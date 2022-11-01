@@ -1,6 +1,8 @@
+wandb
+torch
+torchvision
 pytorch-lightning >= 1.0.0rc2
 pandas
-wandb
 matplotlib
 numpy
 einops

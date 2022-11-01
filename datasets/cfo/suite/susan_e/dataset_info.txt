@@ -1,3 +1,0 @@
-susan_e_1_LLVM_10_1000
-no_reps_susan_e_1_LLVM_61_1000
-pow_no_reps_susan_e_1_LLVM_61_1000
